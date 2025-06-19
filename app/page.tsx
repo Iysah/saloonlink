@@ -204,7 +204,7 @@ export default function HomePage() {
               </Button>
             </Link>
             <Link href="/auth/register?role=barber">
-              <Button variant="outline" className="px-8 py-3 border-white text-white hover:bg-white hover:text-emerald-600">
+              <Button variant="outline" className="px-8 py-3 border-white text-emerald-600 hover:bg-white hover:text-emerald-600">
                 I'm a Barber
               </Button>
             </Link>

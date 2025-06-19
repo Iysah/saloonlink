@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Salon Booking Assistant - Smart Walk-in & Appointment System',
   description: 'Book appointments or join virtual queues at your favorite salons. Real-time notifications and seamless booking experience.',
+  generator: 'Iysah - TheProductDude'
 };
 
 export default function RootLayout({
