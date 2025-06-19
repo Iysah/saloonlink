@@ -14,9 +14,21 @@ export default async function Page({ params }: PageProps) {
 }
 
 export async function generateStaticParams() {
-  const { data, error } = await supabase
-    .from('barber_profiles')
-    .select('user_id');
-  if (error) return [];
-  return (data ?? []).map((barber: { user_id: string }) => ({ barberId: barber.user_id }));
+  try {
+    const { data, error } = await supabase
+      .from('barber_profiles')
+      .select('user_id');
+
+    if (error || !data) {
+      console.error('Supabase error:', error);
+      return [];
+    }
+
+    return data.map((barber: { user_id: string }) => ({
+      barberId: barber.user_id,
+    }));
+  } catch (err) {
+    console.error('Failed to fetch barber IDs:', err);
+    return [];
+  }
 }
