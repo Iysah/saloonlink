@@ -374,4 +374,19 @@ const QueuePage = () => {
   );
 }
 
-export default QueuePage;
+export async function generateStaticParams() {
+  // Fetch all barber user_ids from the barber_profiles table
+  const { data, error } = await supabase
+    .from('barber_profiles')
+    .select('user_id');
+
+  if (error) {
+    // Optionally log or handle the error
+    return [];
+  }
+
+  // Map the user_ids to the params format expected by Next.js
+  return (data ?? []).map((barber: { user_id: string }) => ({
+    barberId: barber.user_id,
+  }));
+}
