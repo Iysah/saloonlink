@@ -44,7 +44,7 @@ interface BarberInfo {
   };
 }
 
-export default function QueuePage() {
+const QueuePage = () => {
   const params = useParams();
   const barberId = params.barberId as string;
   
@@ -373,3 +373,5 @@ export default function QueuePage() {
     </div>
   );
 }
+
+export default QueuePage;
