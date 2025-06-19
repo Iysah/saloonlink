@@ -44,6 +44,7 @@ export default function RegisterPage() {
         .from('profiles')
         .insert({
           id: authData.user.id,
+          // user_id: authData.user.id,
           name: formData.name,
           role: formData.role,
           phone: formData.phone
