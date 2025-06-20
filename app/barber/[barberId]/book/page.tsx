@@ -81,6 +81,25 @@ export default function BookBarberPage() {
           notes
         });
       if (insertError) throw insertError;
+      // Fetch customer phone number
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("phone")
+        .eq("id", user.id)
+        .single();
+      // Get service name
+      const serviceObj = services.find(s => s.id === selectedService);
+      // Send WhatsApp confirmation if phone exists
+      if (profile?.phone && serviceObj) {
+        const { whatsappService } = await import("@/lib/whatsapp");
+        await whatsappService.sendAppointmentConfirmation(
+          profile.phone,
+          barber.salon_name || "Salon",
+          date,
+          time,
+          serviceObj.service_name
+        );
+      }
       setSuccess("Appointment booked successfully!");
       setTimeout(() => router.push("/customer/dashboard"), 1500);
     } catch (err: any) {

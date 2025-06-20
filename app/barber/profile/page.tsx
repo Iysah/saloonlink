@@ -265,7 +265,7 @@ export default function BarberProfilePage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="price">Price (NGN)</Label>
+                  <Label htmlFor="price">Price (₦)</Label>
                   <Input
                     id="price"
                     name="price"
@@ -314,7 +314,7 @@ export default function BarberProfilePage() {
                     <div key={service.id} className="flex justify-between items-center border rounded-lg p-3">
                       <div>
                         <div className="font-semibold">{service.service_name}</div>
-                        <div className="text-sm text-gray-500">NGN{service.price} &bull; {service.duration_minutes} min</div>
+                        <div className="text-sm text-gray-500">₦{service.price} &bull; {service.duration_minutes} min</div>
                       </div>
                     </div>
                   ))}
