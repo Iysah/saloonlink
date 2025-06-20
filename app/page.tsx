@@ -99,7 +99,7 @@ export default function HomePage() {
                   <div className="rounded-md shadow">
                     <Link href="/auth/register">
                       <Button className="w-full flex items-center justify-center px-8 py-3 text-base font-medium bg-emerald-600 hover:bg-emerald-700 md:py-4 md:text-lg md:px-10">
-                        Get Started
+                        Get Started for Free
                       </Button>
                     </Link>
                   </div>
