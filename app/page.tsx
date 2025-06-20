@@ -394,7 +394,7 @@ export default function HomePage() {
                 </p>
                 <div className="flex items-center">
                   <Image
-                    src="https://images.unsplash.com/photo-1611432579402-7037e3e2c1e4?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmxhY2slMjB3b21hbnxlbnwwfHwwfHx8MA%3D%3D"
+                    src="/images/stylist.jpeg"
                     alt="Mary Adewale"
                     width={40}
                     height={40}
@@ -421,7 +421,7 @@ export default function HomePage() {
                 </p>
                 <div className="flex items-center">
                   <Image
-                    src="https://images.unsplash.com/photo-1632765854612-9b02b6ec2b15?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGJsYWNrJTIwd29tYW58ZW58MHx8MHx8fDA%3D"
+                    src="/images/user.jpeg"
                     alt="Jennifer Adagu"
                     width={40}
                     height={40}
@@ -448,14 +448,14 @@ export default function HomePage() {
                 </p>
                 <div className="flex items-center">
                   <Image
-                    src="https://images.unsplash.com/photo-1570158268183-d296b2892211?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8YmxhY2slMjBtYW58ZW58MHx8MHx8fDA%3D"
+                    src="/images/barber.jpeg"
                     alt="David Chen"
                     width={40}
                     height={40}
                     className="rounded-full mr-3"
                   />
                   <div>
-                    <p className="font-semibold text-gray-900">David Chen</p>
+                    <p className="font-semibold text-gray-900">Ali Usman</p>
                     <p className="text-sm text-gray-500">Manager, Urban Cuts</p>
                   </div>
                 </div>
