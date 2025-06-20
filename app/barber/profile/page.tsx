@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, User, MapPin, Building } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export default function BarberProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -25,6 +26,11 @@ export default function BarberProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [services, setServices] = useState<any[]>([]);
+  const [serviceForm, setServiceForm] = useState({ service_name: "", price: "", duration_minutes: "" });
+  const [serviceLoading, setServiceLoading] = useState(false);
+  const [serviceError, setServiceError] = useState("");
+  const [serviceSuccess, setServiceSuccess] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -39,6 +45,7 @@ export default function BarberProfilePage() {
     }
     setUser(user);
     await fetchProfile(user.id);
+    await fetchServices(user.id);
     setLoading(false);
   };
 
@@ -58,6 +65,15 @@ export default function BarberProfilePage() {
         location: barberProfile.location || ""
       });
     }
+  };
+
+  const fetchServices = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("services")
+      .select("id, service_name, price, duration_minutes")
+      .eq("barber_id", userId)
+      .order("created_at", { ascending: false });
+    if (data) setServices(data);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -86,6 +102,45 @@ export default function BarberProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleServiceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setServiceForm({ ...serviceForm, [e.target.name]: e.target.value });
+  };
+
+  const handleAddService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setServiceLoading(true);
+    setServiceError("");
+    setServiceSuccess("");
+    if (!serviceForm.service_name || !serviceForm.price || !serviceForm.duration_minutes) {
+      setServiceError("All fields are required.");
+      setServiceLoading(false);
+      return;
+    }
+    const price = parseFloat(serviceForm.price);
+    const duration = parseInt(serviceForm.duration_minutes, 10);
+    if (isNaN(price) || isNaN(duration)) {
+      setServiceError("Price and duration must be valid numbers.");
+      setServiceLoading(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("services")
+      .insert({
+        barber_id: user.id,
+        service_name: serviceForm.service_name,
+        price,
+        duration_minutes: duration
+      });
+    if (error) {
+      setServiceError(error.message);
+    } else {
+      setServiceSuccess("Service added successfully!");
+      setServiceForm({ service_name: "", price: "", duration_minutes: "" });
+      await fetchServices(user.id);
+    }
+    setServiceLoading(false);
   };
 
   if (loading) {
@@ -178,6 +233,94 @@ export default function BarberProfilePage() {
                 )}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+        <Card className="shadow-xl mt-8">
+          <CardHeader>
+            <CardTitle>Services</CardTitle>
+            <CardDescription>Add and manage your offered services</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAddService} className="space-y-4 mb-6">
+              {serviceError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{serviceError}</AlertDescription>
+                </Alert>
+              )}
+              {serviceSuccess && (
+                <Alert variant="default">
+                  <AlertDescription>{serviceSuccess}</AlertDescription>
+                </Alert>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="service_name">Service Name</Label>
+                  <Input
+                    id="service_name"
+                    name="service_name"
+                    value={serviceForm.service_name}
+                    onChange={handleServiceChange}
+                    placeholder="e.g. Low-cut"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="price">Price (NGN)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={serviceForm.price}
+                    onChange={handleServiceChange}
+                    placeholder="e.g. 1,000"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="duration_minutes">Duration (min)</Label>
+                  <Input
+                    id="duration_minutes"
+                    name="duration_minutes"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={serviceForm.duration_minutes}
+                    onChange={handleServiceChange}
+                    placeholder="e.g. 30"
+                    required
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={serviceLoading}>
+                {serviceLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Service"
+                )}
+              </Button>
+            </form>
+            <Separator className="mb-4" />
+            <div>
+              {services.length === 0 ? (
+                <p className="text-gray-500 text-center">No services added yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {services.map((service) => (
+                    <div key={service.id} className="flex justify-between items-center border rounded-lg p-3">
+                      <div>
+                        <div className="font-semibold">{service.service_name}</div>
+                        <div className="text-sm text-gray-500">NGN{service.price} &bull; {service.duration_minutes} min</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
