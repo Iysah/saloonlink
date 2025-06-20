@@ -298,7 +298,7 @@ export default function CustomerDashboard() {
                           size="sm" 
                           variant="outline" 
                           className="flex-1"
-                          onClick={() => router.push(`/queue/${barber.user_id}`)}
+                          onClick={() => router.push(`/barber/${barber.user_id}/queue`)}
                         >
                           <Users className="h-4 w-4 mr-1" />
                           Queue

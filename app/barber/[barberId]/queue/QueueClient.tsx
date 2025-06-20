@@ -86,6 +86,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
       .order('position');
     if (data) {
       setQueue(data);
+      console.log(queue)
       const existingUser = data.find(item => item.phone === customerPhone);
       if (existingUser) {
         setUserQueueItem(existingUser);
@@ -187,17 +188,17 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
           <CardContent className="pt-6">
             <div className="flex items-center space-x-4">
               <Avatar className="h-16 w-16">
-                <AvatarImage src={barber.profile.profile_picture} />
+                <AvatarImage src={barber?.profile?.profile_picture} />
                 <AvatarFallback>
-                  {barber.profile.name.charAt(0)}
+                  {barber?.profile?.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold text-gray-900">{barber.salon_name}</h1>
-                <p className="text-gray-600">{barber.profile.name}</p>
+                <h1 className="text-2xl font-bold text-gray-900">{barber?.salon_name}</h1>
+                <p className="text-gray-600">{barber?.profile?.name}</p>
                 <div className="flex items-center mt-2 text-sm text-gray-500">
                   <MapPin className="h-4 w-4 mr-1" />
-                  <span>{barber.location}</span>
+                  <span>{barber?.location}</span>
                 </div>
               </div>
               <Badge className="bg-green-100 text-green-800">Available</Badge>
