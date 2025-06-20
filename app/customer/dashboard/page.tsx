@@ -217,7 +217,7 @@ export default function CustomerDashboard() {
                         </div>
                         <p className="font-medium mt-1">{appointment.barber.salon_name}</p>
                         <p className="text-sm text-gray-600">
-                          {appointment.service.service_name} - ${appointment.service.price}
+                          {appointment?.service.service_name} - ${appointment?.service.price}
                         </p>
                       </div>
                     </div>
@@ -229,26 +229,26 @@ export default function CustomerDashboard() {
 
           {/* Available Barbers */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBarbers.map((barber) => (
-              <Card key={barber.user_id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            {filteredBarbers?.map((barber) => (
+              <Card key={barber?.user_id} className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardContent className="p-6">
                   <div className="flex items-start space-x-4">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src={barber.profile.profile_picture} />
+                      <AvatarImage src={barber?.profile?.profile_picture} />
                       <AvatarFallback>
-                        {barber.profile.name.charAt(0)}
+                        {barber?.profile?.name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">
-                        {barber.salon_name}
+                        {barber?.salon_name}
                       </h3>
                       <p className="text-sm text-gray-600 truncate">
-                        {barber.profile.name}
+                        {barber?.profile?.name}
                       </p>
                       <div className="flex items-center mt-1 text-sm text-gray-500">
                         <MapPin className="h-3 w-3 mr-1" />
-                        <span className="truncate">{barber.location}</span>
+                        <span className="truncate">{barber?.location}</span>
                       </div>
                     </div>
                   </div>
@@ -257,12 +257,12 @@ export default function CustomerDashboard() {
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-gray-700">Services</span>
                       <div className="flex items-center space-x-2">
-                        {barber.is_available && (
+                        {barber?.is_available && (
                           <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
                             Available
                           </Badge>
                         )}
-                        {barber.walk_in_enabled && (
+                        {barber?.walk_in_enabled && (
                           <Badge variant="outline" className="text-xs">
                             Walk-ins
                           </Badge>
@@ -271,13 +271,13 @@ export default function CustomerDashboard() {
                     </div>
                     
                     <div className="space-y-2 mb-4">
-                      {barber.services.slice(0, 2).map((service) => (
+                      {barber?.services.slice(0, 2).map((service) => (
                         <div key={service.id} className="flex justify-between text-sm">
                           <span className="text-gray-600">{service.service_name}</span>
                           <span className="font-medium">${service.price}</span>
                         </div>
                       ))}
-                      {barber.services.length > 2 && (
+                      {barber?.services.length > 2 && (
                         <div className="text-xs text-gray-500">
                           +{barber.services.length - 2} more services
                         </div>

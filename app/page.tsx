@@ -47,7 +47,7 @@ export default function HomePage() {
     {
       icon: Calendar,
       title: 'Smart Booking',
-      description: 'Book appointments with your favorite barbers in advance'
+      description: 'Book appointments with your favorite stylists in advance'
     },
     {
       icon: Users,
@@ -205,7 +205,7 @@ export default function HomePage() {
             </Link>
             <Link href="/auth/register?role=barber">
               <Button variant="outline" className="px-8 py-3 border-white text-emerald-600 hover:bg-white hover:text-emerald-600">
-                I'm a Barber
+                I'm a Stylist
               </Button>
             </Link>
           </div>

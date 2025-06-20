@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
   User
 } from 'lucide-react';
 import { format } from 'date-fns';
+import QRCode from 'qrcode';
 
 interface Appointment {
   id: string;
@@ -61,11 +62,24 @@ export default function BarberDashboard() {
   const [isAvailable, setIsAvailable] = useState(true);
   const [walkInEnabled, setWalkInEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     checkUser();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      const url = getQueueUrl();
+      if (url) {
+        QRCode.toDataURL(url, { width: 256 }, (err, url) => {
+          if (!err && url) setQrCodeUrl(url);
+        });
+      }
+    }
+  }, [user]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -457,8 +471,12 @@ export default function BarberDashboard() {
               </CardHeader>
               <CardContent className="text-center">
                 <div className="bg-white p-8 rounded-lg inline-block border-2 border-dashed border-gray-300">
-                  <QrCode className="h-32 w-32 text-gray-400 mx-auto mb-4" />
-                  <p className="text-sm text-gray-600 mb-4">QR Code will appear here</p>
+                  {qrCodeUrl ? (
+                    <img src={qrCodeUrl} alt="Queue QR Code" className="h-32 w-32 mx-auto mb-4" />
+                  ) : (
+                    <QrCode className="h-32 w-32 text-gray-400 mx-auto mb-4" />
+                  )}
+                  <p className="text-sm text-gray-600 mb-4">Scan to join the queue</p>
                   <p className="text-xs text-gray-500 max-w-xs">
                     {getQueueUrl()}
                   </p>
