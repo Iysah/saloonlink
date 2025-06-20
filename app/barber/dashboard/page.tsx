@@ -254,7 +254,7 @@ export default function BarberDashboard() {
 
   const getQueueUrl = () => {
     if (!user) return '';
-    return `${window.location.origin}/queue/${user.id}`;
+    return `${window.location.origin}/barber/${user.id}/queue`;
   };
 
   if (loading) {
