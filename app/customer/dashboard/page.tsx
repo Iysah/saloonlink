@@ -115,9 +115,9 @@ export default function CustomerDashboard() {
   };
 
   const filteredBarbers = barbers.filter(barber => 
-    barber.salon_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    barber.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    barber.profile.name.toLowerCase().includes(searchTerm.toLowerCase())
+    barber?.salon_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    barber?.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    barber?.profile?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleLogout = async () => {

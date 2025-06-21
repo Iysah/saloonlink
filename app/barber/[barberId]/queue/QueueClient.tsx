@@ -261,13 +261,13 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone">WhatsApp Number</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                       id="phone"
                       type="tel"
-                      placeholder="Enter your phone number"
+                      placeholder="Enter your WhatsApp number"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       className="pl-10"
