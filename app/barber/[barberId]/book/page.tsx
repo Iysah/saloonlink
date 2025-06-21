@@ -169,7 +169,7 @@ export default function BookBarberPage() {
                   <option value="">Select a service</option>
                   {services.map(service => (
                     <option key={service.id} value={service.id}>
-                      {service.service_name} - ${service.price} ({service.duration_minutes} min)
+                      {service.service_name} - ₦{service.price} ({service.duration_minutes} min)
                     </option>
                   ))}
                 </select>
