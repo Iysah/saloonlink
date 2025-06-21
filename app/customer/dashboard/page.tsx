@@ -217,7 +217,7 @@ export default function CustomerDashboard() {
                         </div>
                         <p className="font-medium mt-1">{appointment.barber.salon_name}</p>
                         <p className="text-sm text-gray-600">
-                          {appointment?.service.service_name} - ${appointment?.service.price}
+                          {appointment?.service.service_name} - ₦{appointment?.service.price}
                         </p>
                       </div>
                     </div>
@@ -274,7 +274,7 @@ export default function CustomerDashboard() {
                       {barber?.services.slice(0, 2).map((service) => (
                         <div key={service.id} className="flex justify-between text-sm">
                           <span className="text-gray-600">{service.service_name}</span>
-                          <span className="font-medium">${service.price}</span>
+                          <span className="font-medium">₦{service.price}</span>
                         </div>
                       ))}
                       {barber?.services.length > 2 && (
