@@ -584,11 +584,11 @@ export default function HomePage() {
                     Careers
                   </Link>
                 </li>
-                <li>
+                {/* <li>
                   <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
                     Privacy Policy
                   </Link>
-                </li>
+                </li> */}
               </ul>
             </div>
 
@@ -606,12 +606,12 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="text-gray-400 hover:text-white transition-colors">
-                    Status
+                  <Link href="/delete-account" className="text-gray-400 hover:text-white transition-colors">
+                    Delete Account
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
                     Privacy
                   </Link>
                 </li>
