@@ -17,7 +17,8 @@ import {
   Users,
   Scissors,
   LogOut,
-  User
+  User,
+  Menu
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -58,6 +59,7 @@ export default function CustomerDashboard() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -150,7 +152,9 @@ export default function CustomerDashboard() {
                 <p className="text-sm text-gray-600">Book appointments or join queues</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center space-x-4">
               <Button 
                 variant="outline" 
                 onClick={() => router.push('/customer/profile')}
@@ -163,7 +167,44 @@ export default function CustomerDashboard() {
                 Logout
               </Button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
+              <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                <Menu className="h-6 w-6" />
+              </Button>
+            </div>
           </div>
+          
+          {/* Mobile Menu Dropdown */}
+          {isMenuOpen && (
+            <div className="md:hidden pb-4">
+              <div className="flex flex-col space-y-2">
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    router.push('/customer/profile');
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </Button>
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
