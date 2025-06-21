@@ -91,7 +91,7 @@ export default function HomePage() {
               <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
                 <Scissors className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">SalonLink</span>
+              <span className="text-xl font-bold text-gray-900">TrimsHive</span>
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">
@@ -299,7 +299,7 @@ export default function HomePage() {
       <section id="how-it-works" className="py-20 bg-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">How <span className='text-emerald-500'>SalonLink</span> Works</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">How <span className='text-emerald-500'>TrimsHive</span> Works</h2>
             <p className="text-xl text-gray-600">Simple setup, powerful results</p>
           </div>
 
@@ -379,7 +379,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Loved by salon owners and customers</h2>
-            <p className="text-xl text-gray-600">See what people are saying about SalonLink</p>
+            <p className="text-xl text-gray-600">See what people are saying about TrimsHive</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -475,7 +475,7 @@ export default function HomePage() {
             <span className="block">Ready to revolutionize your salon?</span>
           </h2>
           <p className="mt-4 text-lg leading-6 text-emerald-200">
-            Join thousands of salon professionals who have transformed their business with SalonLink.
+            Join thousands of salon professionals who have transformed their business with TrimsHive.
           </p>
           <div className="mt-8 flex justify-center space-x-4 mb-6">
             <Link href="/auth/register?role=barber">
@@ -516,7 +516,7 @@ export default function HomePage() {
                 <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
                   <Scissors className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold">SalonLink</span>
+                <span className="text-xl font-bold">TrimsHive</span>
               </div>
               <p className="text-gray-400 mb-4">
                 Revolutionizing the salon experience with smart booking and queue management.
@@ -585,8 +585,8 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="text-gray-400 hover:text-white transition-colors">
-                    Press
+                  <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
+                    Privacy Policy
                   </Link>
                 </li>
               </ul>
@@ -620,7 +620,7 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-            <p className="text-gray-400">© {new Date().getFullYear()} SalonLink. All rights reserved.</p>
+            <p className="text-gray-400">© {new Date().getFullYear()} TrimsHive. All rights reserved.</p>
           </div>
         </div>
       </footer>

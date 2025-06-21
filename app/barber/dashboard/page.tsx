@@ -20,7 +20,8 @@ import {
   CheckCircle,
   Scissors,
   LogOut,
-  User
+  User,
+  Menu
 } from 'lucide-react';
 import { format } from 'date-fns';
 import QRCode from 'qrcode';
@@ -64,6 +65,7 @@ export default function BarberDashboard() {
   const [loading, setLoading] = useState(true);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -284,7 +286,30 @@ export default function BarberDashboard() {
                 <p className="text-sm text-gray-600">{barberProfile?.location}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/customer/profile')}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </Button>
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
+              <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                <Menu className="h-6 w-6" />
+              </Button>
+            </div>
+
+            {/* <div className="flex items-center space-x-4">
               <Button 
                 variant="outline" 
                 onClick={() => router.push('/barber/profile')}
@@ -296,7 +321,7 @@ export default function BarberDashboard() {
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
