@@ -308,6 +308,35 @@ export default function BarberDashboard() {
                 <Menu className="h-6 w-6" />
               </Button>
             </div>
+             {/* Mobile Menu Dropdown */}
+          {isMenuOpen && (
+            <div className="md:hidden pb-4">
+              <div className="flex flex-col space-y-2">
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    router.push('/barber/profile');
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </Button>
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          )}
 
             {/* <div className="flex items-center space-x-4">
               <Button 

@@ -606,13 +606,13 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/delete-account" className="text-gray-400 hover:text-white transition-colors">
-                    Delete Account
+                  <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
+                    Privacy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
-                    Privacy
+                  <Link href="/delete-account" className="text-gray-400 hover:text-white transition-colors">
+                    Delete Account
                   </Link>
                 </li>
               </ul>
