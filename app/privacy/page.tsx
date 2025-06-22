@@ -1,8 +1,13 @@
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import React from 'react'
 
 export default function PrivacyPolicy() {
   return (
     <div className="max-w-2xl mx-auto py-10 px-4">
+      <Link href={'/'}>
+        <ArrowLeft />
+      </Link>
       <h1 className="text-3xl font-bold mb-6">Privacy Policy</h1>
       <p className="mb-4">
         <strong>Last updated:</strong> June 2024

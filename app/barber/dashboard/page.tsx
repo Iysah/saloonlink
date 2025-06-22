@@ -535,9 +535,24 @@ export default function BarberDashboard() {
                     {getQueueUrl()}
                   </p>
                 </div>
-                <div className="mt-6">
+                <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
                   <Button onClick={() => window.open(getQueueUrl(), '_blank')}>
                     Open Queue Page
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!qrCodeUrl) return;
+                      const link = document.createElement('a');
+                      link.href = qrCodeUrl;
+                      link.download = 'queue-qr-code.png';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    disabled={!qrCodeUrl}
+                  >
+                    Download QR Code
                   </Button>
                 </div>
               </CardContent>
