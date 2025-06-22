@@ -302,13 +302,30 @@ export default function BarberDashboard() {
               </Button>
             </div>
 
-            {/* Mobile Menu Button */}
-            <div className="md:hidden">
-              <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                <Menu className="h-6 w-6" />
+
+            {/* <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/barber/profile')}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Profile
               </Button>
-            </div>
-             {/* Mobile Menu Dropdown */}
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div> */}
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              <Menu className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Mobile Menu Dropdown */}
           {isMenuOpen && (
             <div className="md:hidden pb-4">
               <div className="flex flex-col space-y-2">
@@ -337,21 +354,6 @@ export default function BarberDashboard() {
               </div>
             </div>
           )}
-
-            {/* <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                onClick={() => router.push('/barber/profile')}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Profile
-              </Button>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div> */}
-          </div>
         </div>
       </div>
 

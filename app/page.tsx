@@ -483,7 +483,7 @@ export default function HomePage() {
                 Get Started
               </Button>
             </Link>
-            <Link href="/auth/register?role=barber">
+            <Link href="/auth/login">
               <Button variant="outline" className="px-8 py-3 border-white text-emerald-600 hover:bg-white hover:text-emerald-600">
                 Sign In
               </Button>
@@ -493,11 +493,11 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-emerald-100">
             <div className="flex items-center">
               <Shield className="w-4 h-4 mr-2" />
-              14-day free trial
+              30-day free trial
             </div>
             <div className="flex items-center">
               <Zap className="w-4 h-4 mr-2" />
-              Setup in 5 minutes
+              Setup in 2 minutes
             </div>
             <div className="flex items-center">
               <Check className="w-4 h-4 mr-2" />
