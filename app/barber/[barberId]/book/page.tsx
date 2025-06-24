@@ -91,7 +91,7 @@ export default function BookBarberPage() {
       const serviceObj = services.find(s => s.id === selectedService);
       // Send WhatsApp confirmation if phone exists
       if (profile?.phone && serviceObj) {
-        const { whatsappService } = await import("@/lib/whatsapp");
+        const { whatsappService } = await import("@/lib/termii");
         await whatsappService.sendAppointmentConfirmation(
           profile.phone,
           barber.salon_name || "Salon",

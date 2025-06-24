@@ -127,7 +127,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
         .insert({ type: 'queue_confirmation', message: `You've joined the queue at ${barber.salon_name}. You're #${nextPosition} in line.`, phone: customerPhone });
       // Send WhatsApp queue confirmation
       if (customerPhone && barber.salon_name) {
-        const { whatsappService } = await import("@/lib/whatsapp");
+        const { whatsappService } = await import("@/lib/termii");
         await whatsappService.sendQueueConfirmation(
           customerPhone,
           barber.salon_name,

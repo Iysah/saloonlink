@@ -224,7 +224,25 @@ export default function BarberDashboard() {
     if (!error) {
       fetchQueue(user.id);
       // Update positions for remaining queue items
-      updateQueuePositions();
+      await updateQueuePositions();
+      // Send WhatsApp alert to the next in line (position 1)
+      const { data: waitingQueue } = await supabase
+        .from('queue')
+        .select('*')
+        .eq('barber_id', user.id)
+        .eq('status', 'waiting')
+        .order('position');
+      if (waitingQueue && waitingQueue.length > 0) {
+        const next = waitingQueue[0];
+        if (next && next.phone && barberProfile?.salon_name) {
+          const { whatsappService } = await import("@/lib/termii");
+          await whatsappService.sendQueueAlert(
+            next.phone,
+            barberProfile.salon_name,
+            next.position
+          );
+        }
+      }
     }
   };
 
