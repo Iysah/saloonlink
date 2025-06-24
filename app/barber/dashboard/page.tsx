@@ -334,15 +334,15 @@ export default function BarberDashboard() {
                 Logout
               </Button>
             </div> */}
-          </div>
-          
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              <Menu className="h-6 w-6" />
-            </Button>
-          </div>
 
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
+              <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                <Menu className="h-6 w-6" />
+              </Button>
+            </div>
+
+          </div>
           {/* Mobile Menu Dropdown */}
           {isMenuOpen && (
             <div className="md:hidden pb-4">
@@ -372,6 +372,7 @@ export default function BarberDashboard() {
               </div>
             </div>
           )}
+          
         </div>
       </div>
 
@@ -437,25 +438,25 @@ export default function BarberDashboard() {
                           <div className="flex items-center space-x-3">
                             <div className="flex items-center space-x-2">
                               <Clock className="h-4 w-4 text-gray-400" />
-                              <span className="font-medium">{appointment.appointment_time}</span>
+                              <span className="font-medium">{appointment?.appointment_time}</span>
                             </div>
                             <Badge 
                               variant={
-                                appointment.status === 'completed' ? 'default' :
-                                appointment.status === 'in_progress' ? 'secondary' :
+                                appointment?.status === 'completed' ? 'default' :
+                                appointment?.status === 'in_progress' ? 'secondary' :
                                 'outline'
                               }
                             >
-                              {appointment.status}
+                              {appointment?.status}
                             </Badge>
                           </div>
-                          <p className="font-medium mt-1">{appointment.customer.name}</p>
+                          <p className="font-medium mt-1">{appointment?.customer?.name}</p>
                           <p className="text-sm text-gray-600">
-                            {appointment.service.service_name} - ${appointment.service.price}
+                            {appointment?.service?.service_name} - ${appointment?.service?.price}
                           </p>
                         </div>
                         <div className="flex space-x-2">
-                          {appointment.status === 'scheduled' && (
+                          {appointment?.status === 'scheduled' && (
                             <Button 
                               size="sm" 
                               onClick={() => startAppointment(appointment.id)}
@@ -465,10 +466,10 @@ export default function BarberDashboard() {
                               Start
                             </Button>
                           )}
-                          {appointment.status === 'in_progress' && (
+                          {appointment?.status === 'in_progress' && (
                             <Button 
                               size="sm" 
-                              onClick={() => completeAppointment(appointment.id)}
+                              onClick={() => completeAppointment(appointment?.id)}
                               variant="outline"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
