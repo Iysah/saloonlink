@@ -499,22 +499,22 @@ export default function BarberDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {queue.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg gap-3">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <Badge variant="outline">#{item.position}</Badge>
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-1 sm:space-y-0">
+                            <Badge variant="outline" className='w-8 h-6'>#{item.position}</Badge>
                             <span className="font-medium">{item.customer_name}</span>
-                            <span className="text-sm text-gray-600">{item.phone}</span>
+                            <span className="text-sm text-gray-600 break-all">{item.phone}</span>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
                             Joined: {format(new Date(item.join_time), 'h:mm a')}
                           </p>
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
                           <Button 
                             size="sm" 
                             onClick={() => startQueueItem(item.id)}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                           >
                             <Play className="h-4 w-4 mr-1" />
                             Start
@@ -523,6 +523,7 @@ export default function BarberDashboard() {
                             size="sm" 
                             onClick={() => completeQueueItem(item.id)}
                             variant="outline"
+                            className="w-full sm:w-auto"
                           >
                             <CheckCircle className="h-4 w-4 mr-1" />
                             Done

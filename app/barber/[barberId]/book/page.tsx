@@ -28,6 +28,8 @@ export default function BookBarberPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
 
   useEffect(() => {
     checkUser();
@@ -40,6 +42,16 @@ export default function BookBarberPage() {
       return;
     }
     setUser(user);
+    // Fetch customer profile for autofill
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, phone')
+      .eq('id', user.id)
+      .single();
+    if (profile) {
+      setCustomerName(profile.name || '');
+      setCustomerPhone(profile.phone || '');
+    }
     await fetchBarberInfo();
     setLoading(false);
   };

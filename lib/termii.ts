@@ -3,7 +3,7 @@
 export class TermiiWhatsAppService {
     private apiKey: string;
     private senderId: string;
-    private baseUrl = 'https://v3.api.termii.com';
+    private baseUrl = 'https://v3.api.termii.com/api/sms/send';
   
     constructor() {
       this.apiKey = process.env.TERMII_API_KEY || '';

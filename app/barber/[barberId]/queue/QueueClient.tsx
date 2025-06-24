@@ -65,6 +65,25 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [barberId]);
 
+  useEffect(() => {
+    // Fetch customer profile if logged in
+    const fetchCustomerProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, phone')
+          .eq('id', user.id)
+          .single();
+        if (profile) {
+          setCustomerName(profile.name || '');
+          setCustomerPhone(profile.phone || '');
+        }
+      }
+    };
+    fetchCustomerProfile();
+  }, []);
+
   const fetchBarberInfo = async () => {
     const { data } = await supabase
       .from('barber_profiles')
@@ -143,7 +162,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   };
 
   const calculateWaitTime = (position: number) => {
-    const averageServiceTime = 30;
+    const averageServiceTime = 10;
     return position * averageServiceTime;
   };
 
