@@ -190,6 +190,25 @@ export default function BarberDashboard() {
 
     if (!error) {
       fetchAppointments(user.id);
+      // Send WhatsApp appointment started notification
+      // Fetch appointment details for phone, salonName, service
+      const { data: appt } = await supabase
+        .from('appointments')
+        .select('customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)')
+        .eq('id', appointmentId)
+        .single();
+      if (appt) {
+        const customer = Array.isArray(appt.customer) ? appt.customer[0] : appt.customer;
+        const barber = Array.isArray(appt.barber) ? appt.barber[0] : appt.barber;
+        const service = Array.isArray(appt.service) ? appt.service[0] : appt.service;
+        const customerPhone = customer?.phone;
+        const salonName = barber?.salon_name;
+        const serviceName = service?.service_name;
+        if (customerPhone && salonName && serviceName) {
+          const { whatsappService } = await import("@/lib/termii");
+          await whatsappService.sendAppointmentStarted(customerPhone, salonName, serviceName);
+        }
+      }
     }
   };
 
@@ -201,6 +220,25 @@ export default function BarberDashboard() {
 
     if (!error) {
       fetchAppointments(user.id);
+      // Send WhatsApp service completed notification
+      // Fetch appointment details for phone, salonName, service
+      const { data: appt } = await supabase
+        .from('appointments')
+        .select('customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)')
+        .eq('id', appointmentId)
+        .single();
+      if (appt) {
+        const customer = Array.isArray(appt.customer) ? appt.customer[0] : appt.customer;
+        const barber = Array.isArray(appt.barber) ? appt.barber[0] : appt.barber;
+        const service = Array.isArray(appt.service) ? appt.service[0] : appt.service;
+        const customerPhone = customer?.phone;
+        const salonName = barber?.salon_name;
+        const serviceName = service?.service_name;
+        if (customerPhone && salonName && serviceName) {
+          const { whatsappService } = await import("@/lib/termii");
+          await whatsappService.sendServiceCompleted(customerPhone, salonName, serviceName);
+        }
+      }
     }
   };
 
@@ -240,6 +278,11 @@ export default function BarberDashboard() {
             next.phone,
             barberProfile.salon_name,
             next.position
+          );
+          // Also send "Next in Line" alert
+          await whatsappService.sendNextInLineAlert(
+            next.phone,
+            barberProfile.salon_name
           );
         }
       }
