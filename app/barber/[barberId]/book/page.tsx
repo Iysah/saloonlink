@@ -81,6 +81,7 @@ export default function BookBarberPage() {
       return;
     }
     try {
+      console.log("[Book] Submitting appointment:", { userId: user.id, barberId, selectedService, date, time, notes });
       const { error: insertError } = await supabase
         .from("appointments")
         .insert({
@@ -92,30 +93,48 @@ export default function BookBarberPage() {
           status: "scheduled",
           notes
         });
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("[Book] Error inserting appointment:", insertError);
+        throw insertError;
+      }
+      console.log("[Book] Appointment inserted successfully");
       // Fetch customer phone number
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("phone")
         .eq("id", user.id)
         .single();
+      if (profileError) {
+        console.error("[Book] Error fetching profile:", profileError);
+      }
+      console.log("[Book] Fetched profile:", profile);
       // Get service name
       const serviceObj = services.find(s => s.id === selectedService);
+      console.log("[Book] Service object:", serviceObj);
       // Send WhatsApp confirmation if phone exists
       if (profile?.phone && serviceObj) {
-        const { whatsappService } = await import("@/lib/termii");
-        await whatsappService.sendAppointmentConfirmation(
-          profile.phone,
-          barber.salon_name || "Salon",
-          date,
-          time,
-          serviceObj.service_name
-        );
+        try {
+          const { whatsappService } = await import("@/lib/termii");
+          console.log("[Book] Sending WhatsApp confirmation to:", profile.phone);
+          const result = await whatsappService.sendAppointmentConfirmation(
+            profile.phone,
+            barber.salon_name || "Salon",
+            date,
+            time,
+            serviceObj.service_name
+          );
+          console.log("[Book] WhatsApp send result:", result);
+        } catch (waErr) {
+          console.error("[Book] Error sending WhatsApp confirmation:", waErr);
+        }
+      } else {
+        console.warn("[Book] Missing phone or serviceObj, not sending WhatsApp", { phone: profile?.phone, serviceObj });
       }
       setSuccess("Appointment booked successfully!");
       setTimeout(() => router.push("/customer/dashboard"), 1500);
     } catch (err: any) {
       setError(err.message);
+      console.error("[Book] General error in handleSubmit:", err);
     } finally {
       setSubmitting(false);
     }

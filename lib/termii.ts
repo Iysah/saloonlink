@@ -6,8 +6,8 @@ export class TermiiWhatsAppService {
     private baseUrl = 'https://v3.api.termii.com/api/send/template';
   
     constructor() {
-      this.apiKey = process.env.TERMII_API_KEY || '';
-      this.deviceId = process.env.TERMII_DEVICE_ID || '';
+      this.apiKey = process.env.TERMII_API_KEY || 'TLeZODympuQoRcNUysAPajuEtuHXxlWDOyOMXXMXHyNUuCmolOMdbRpxxKpLZE';
+      this.deviceId = process.env.TERMII_DEVICE_ID || '206f76f8-ba3f-43d4-8904-d51bcc9537fa';
     }
   
     private getTemplateId(type: 'queueConfirmation' | 'queueAlert' | 'appointmentConfirmation' | 'appointmentReminder') {
