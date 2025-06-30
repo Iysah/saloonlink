@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, Clock, MapPin, Scissors, Phone, User, CheckCircle, Loader2 } from 'lucide-react';
+import { Users, Clock, MapPin, Scissors, Phone, User, CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import React from 'react';
 
@@ -217,6 +217,16 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-4">
       <div className="max-w-2xl mx-auto space-y-6">
+        <div className="mb-6">
+          <Button 
+            variant="ghost" 
+            onClick={() => window.history.back()}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </div>
         {/* Barber Info */}
         <Card>
           <CardContent className="pt-6">

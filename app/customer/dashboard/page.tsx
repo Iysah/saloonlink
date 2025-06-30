@@ -271,7 +271,7 @@ export default function CustomerDashboard() {
           {/* Available Barbers */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBarbers?.map((barber) => (
-              <Card key={barber?.user_id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card key={barber?.user_id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-start space-x-4">
                     <Avatar className="h-12 w-12">
@@ -329,10 +329,10 @@ export default function CustomerDashboard() {
                       <Button 
                         size="sm" 
                         className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => router.push(`/barber/${barber.user_id}/book`)}
+                        onClick={() => router.push(`/barber/${barber.user_id}`)}
                       >
                         <Calendar className="h-4 w-4 mr-1" />
-                        Book
+                        View Details
                       </Button>
                       {barber.walk_in_enabled && (
                         <Button 
