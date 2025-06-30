@@ -90,12 +90,22 @@ export default function CustomerProfile() {
         return;
       }
 
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(filePath, 60 * 60 * 24); // URL valid for 24 hours
 
-      profilePictureUrl = data.publicUrl;
-      setUploadProgress("Image uploaded successfully!");
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw new Error("Failed to generate signed URL");
+      }
+
+      profilePictureUrl = signedUrlData.signedUrl;
+
+      // const { data } = supabase.storage
+      //   .from('avatars')
+      //   .getPublicUrl(filePath);
+
+      // profilePictureUrl = data.publicUrl;
+      // setUploadProgress("Image uploaded successfully!");
     }
 
     // Update profile in database

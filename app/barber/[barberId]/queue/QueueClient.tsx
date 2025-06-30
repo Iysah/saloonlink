@@ -49,6 +49,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (barberId) {
@@ -70,6 +71,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     const fetchCustomerProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        setCurrentUserId(user.id);
         const { data: profile } = await supabase
           .from('profiles')
           .select('name, phone')
@@ -132,7 +134,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
         return;
       }
       const nextPosition = queue.length + 1;
-      const estimatedWait = nextPosition * 30;
+      const estimatedWait = nextPosition * 20;
       const { data, error: insertError } = await supabase
         .from('queue')
         .insert({ barber_id: barberId, customer_name: customerName, phone: customerPhone, position: nextPosition, estimated_wait_minutes: estimatedWait })
@@ -184,6 +186,9 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
           <CardContent className="text-center py-12">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Barber not found</h3>
             <p className="text-gray-500">The barber you're looking for doesn't exist or is not available.</p>
+            <Button onClick={() => window.history.back()}>
+              Go Back
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -331,18 +336,24 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {queue.map((item, index) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Badge variant="outline">#{item.position}</Badge>
-                      <span className="font-medium">{item.customer_name}</span>
+                {queue.map((item, index) => {
+                  // Only show name if current user is barber or this customer
+                  const isBarber = currentUserId === barber?.user_id;
+                  const isCustomer = customerPhone === item.phone;
+                  const displayName = (isBarber || isCustomer) ? item.customer_name : 'Customer';
+                  return (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Badge variant="outline">#{item.position}</Badge>
+                        <span className="font-medium">{displayName}</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm text-gray-500">
+                        <Clock className="h-4 w-4" />
+                        <span>~{calculateWaitTime(item.position)} min</span>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2 text-sm text-gray-500">
-                      <Clock className="h-4 w-4" />
-                      <span>~{calculateWaitTime(item.position)} min</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

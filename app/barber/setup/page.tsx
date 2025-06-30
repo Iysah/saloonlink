@@ -10,13 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Scissors, MapPin, Building, Plus, X, Loader2 } from 'lucide-react';
+import { Scissors, MapPin, Building, Plus, X, Loader2, Image as ImageIcon } from 'lucide-react';
 
 interface Service {
   id: string;
   service_name: string;
   price: number;
   duration_minutes: number;
+  images?: string[];
 }
 
 export default function BarberSetupPage() {
@@ -31,6 +32,7 @@ export default function BarberSetupPage() {
     price: '',
     duration_minutes: '30'
   });
+  const [showImageUpload, setShowImageUpload] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
@@ -220,23 +222,71 @@ export default function BarberSetupPage() {
                 </div>
 
                 {services.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     {services.map((service) => (
-                      <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <span className="font-medium">{service.service_name}</span>
-                          <Badge variant="secondary">${service.price}</Badge>
-                          <Badge variant="outline">{service.duration_minutes}min</Badge>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeService(service.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Card key={service.id} className="border">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <span className="font-medium">{service.service_name}</span>
+                              <Badge variant="secondary">${service.price}</Badge>
+                              <Badge variant="outline">{service.duration_minutes}min</Badge>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowImageUpload(showImageUpload === service.id ? null : service.id)}
+                              >
+                                <ImageIcon className="h-4 w-4 mr-1" />
+                                {service.images && service.images.length > 0 ? `${service.images.length}/3` : 'Add Images'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeService(service.id)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Service Images Preview */}
+                          {service.images && service.images.length > 0 && (
+                            <div className="grid grid-cols-3 gap-2 mb-3">
+                              {service.images.map((image, index) => (
+                                <div key={index} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                  <img
+                                    src={image}
+                                    alt={`${service.service_name} image ${index + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Image Upload Section */}
+                          {showImageUpload === service.id && (
+                            <div className="border-t pt-3">
+                              <p className="text-sm text-gray-600 mb-2">
+                                Add up to 3 images to showcase this service (optional but helps attract clients)
+                              </p>
+                              <div className="text-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                <ImageIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Image upload will be available after service creation
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  You can add images after completing your profile setup
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}

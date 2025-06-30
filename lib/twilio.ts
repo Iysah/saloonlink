@@ -95,3 +95,16 @@ interface TwilioMessage {
   }
   
   export const twilioService = new TwilioService();
+
+  // yawaapp_5
+
+  // TrimsHive - 🎯 You're NEXT at <%salonName%>. Please head to the salon now. Your turn is coming up!
+
+
+  // yawaapp_6 
+
+  // TrimsHive - 🎉 Your <%service%> service has started at <%salonName%>!. Enjoy your session!
+
+  // yawaapp_7
+
+  // TrimsHive - ✨ Your <%service%> is complete at <%salonName%>!. Thank you for choosing us. We hope you love your new look!

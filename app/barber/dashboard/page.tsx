@@ -21,7 +21,8 @@ import {
   Scissors,
   LogOut,
   User,
-  Menu
+  Menu,
+  Image
 } from 'lucide-react';
 import { format } from 'date-fns';
 import QRCode from 'qrcode';
@@ -352,7 +353,14 @@ export default function BarberDashboard() {
             <div className="hidden md:flex items-center space-x-4">
               <Button 
                 variant="outline" 
-                onClick={() => router.push('/customer/profile')}
+                onClick={() => router.push('/barber/services')}
+              >
+                <Image className="h-4 w-4 mr-2" />
+                Services
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/barber/profile')}
               >
                 <User className="h-4 w-4 mr-2" />
                 Profile
@@ -390,6 +398,17 @@ export default function BarberDashboard() {
           {isMenuOpen && (
             <div className="md:hidden pb-4">
               <div className="flex flex-col space-y-2">
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    router.push('/barber/services');
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Image className="h-4 w-4 mr-2" />
+                  Services
+                </Button>
                 <Button 
                   variant="ghost"
                   className="w-full justify-start"
