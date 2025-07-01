@@ -36,15 +36,21 @@ export default function BarberServicesPage() {
       return;
     }
     setUser(user);
-    await fetchServices();
   };
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchServices();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchServices = async () => {
     try {
       const { data, error } = await supabase
         .from('services')
         .select('*')
-        .eq('barber_id', user?.id)
+        .eq('barber_id', user.id)
         .order('created_at');
 
       if (error) throw error;
