@@ -33,8 +33,8 @@ export class TermiiWhatsAppService {
         return false;
       }
       const phone_number = Array.isArray(phone)
-        ? phone.map(p => p.replace(/\D/g, '')).join(',')
-        : phone.replace(/\D/g, '');
+        ? phone.map(formatPhoneNumber).join(',')
+        : formatPhoneNumber(phone);
       const payload = {
         phone_number,
         device_id: this.deviceId,
@@ -142,4 +142,17 @@ export class TermiiWhatsAppService {
 }
   
 export const whatsappService = new TermiiWhatsAppService();
+  
+// Helper to format phone numbers to Nigerian international format
+function formatPhoneNumber(phone: string): string {
+  // Remove all non-digit characters
+  let digits = phone.replace(/\D/g, '');
+  // If it starts with '0', replace with '234'
+  if (digits.startsWith('0')) {
+    digits = '234' + digits.slice(1);
+  }
+  // If it already starts with '234', leave as is
+  // If it starts with something else, you may want to handle or reject
+  return digits;
+}
   
