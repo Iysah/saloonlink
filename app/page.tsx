@@ -88,10 +88,11 @@ export default function HomePage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
+              {/* <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
                 <Scissors className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">TrimsHive</span>
+              <span className="text-xl font-bold text-gray-900">TrimsHive</span> */}
+              <Image src="/images/LOGOTYPE_1.svg" alt="TrimsHive" width={100} height={100} />
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">
@@ -222,6 +223,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
       {/* <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="relative z-10 pb-8 sm:pb-16 md:pb-20 lg:pb-28 xl:pb-32">
@@ -513,10 +515,11 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                <Image src="/images/LOGOTYPE_1.svg" alt="TrimsHive" width={100} height={100} />
+                {/* <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center">
                   <Scissors className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold">TrimsHive</span>
+                <span className="text-xl font-bold">TrimsHive</span> */}
               </div>
               <p className="text-gray-400 mb-4">
                 Revolutionizing the salon experience with smart booking and queue management.

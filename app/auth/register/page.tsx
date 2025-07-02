@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Scissors, Mail, Lock, User, Phone, Loader2, Eye, EyeOff } from 'lucide-react';
+import Image from "next/image"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -82,8 +83,9 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center pb-6">
           <div className="flex justify-center mb-4">
-            <div className="bg-emerald-100 p-3 rounded-full">
-              <Scissors className="h-8 w-8 text-emerald-600" />
+            <div className="bg-emerald-100 px-3 py-6 rounded-full">
+              {/* <Scissors className="h-8 w-8 text-emerald-600" /> */}
+              <Image src="/images/LOGOTYPE_1.svg" alt="TrimsHive" width={70} height={70} />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">Create Account</CardTitle>
