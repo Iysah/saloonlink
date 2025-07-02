@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Scissors, Plus, Edit, Loader2 } from 'lucide-react';
+import { Scissors, Plus, Edit, Loader2, ArrowLeft } from 'lucide-react';
 import { ServiceImageGallery } from '@/components/ui/service-image-gallery';
 
 interface Service {
@@ -76,6 +76,15 @@ export default function BarberServicesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-4">
       <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-emerald-600 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
+        </div>
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">My Services</h1>

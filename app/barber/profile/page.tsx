@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, User, MapPin, Building } from "lucide-react";
+import { Loader2, User, MapPin, Building, ArrowLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export default function BarberProfilePage() {
@@ -154,6 +154,15 @@ export default function BarberProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-4">
       <div className="max-w-2xl mx-auto">
+        <div className="mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-emerald-600 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
+        </div>
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <Avatar className="h-20 w-20">

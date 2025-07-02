@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import { ArrowLeft } from 'lucide-react';
 
 export default function CustomerProfile() {
   const [user, setUser] = useState<any>(null);
@@ -141,6 +142,15 @@ export default function CustomerProfile() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-rose-50">
+      <div className="mb-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center text-gray-600 hover:text-emerald-600 mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </button>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>My Profile</CardTitle>

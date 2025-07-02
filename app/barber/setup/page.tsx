@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Scissors, MapPin, Building, Plus, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Scissors, MapPin, Building, Plus, X, Loader2, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -127,6 +127,15 @@ export default function BarberSetupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-4">
       <div className="max-w-2xl mx-auto">
+        <div className="mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-emerald-600 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
+        </div>
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="bg-emerald-100 p-3 rounded-full">

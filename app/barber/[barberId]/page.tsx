@@ -17,7 +17,8 @@ import {
   Star, 
   Phone, 
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowLeft
 } from 'lucide-react';
 
 interface Service {
@@ -139,6 +140,15 @@ export default function BarberDetailsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        <div className="mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-emerald-600 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </button>
+        </div>
         {/* Barber Header */}
         <Card className="shadow-lg">
           <CardContent className="pt-6">
