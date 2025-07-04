@@ -188,6 +188,35 @@ export type Database = {
           status?: string;
         };
       };
+      reviews: {
+        Row: {
+          id: string;
+          customer_id: string;
+          barber_id: string;
+          appointment_id: string;
+          rating: number;
+          review_text: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          barber_id: string;
+          appointment_id: string;
+          rating: number;
+          review_text?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          barber_id?: string;
+          appointment_id?: string;
+          rating?: number;
+          review_text?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 };

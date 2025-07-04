@@ -22,7 +22,10 @@ import {
   LogOut,
   User,
   Menu,
-  Image
+  Image,
+  Star,
+  Copy,
+  Share2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import QRCode from 'qrcode';
@@ -60,6 +63,7 @@ export default function BarberDashboard() {
   const [user, setUser] = useState<any>(null);
   const [barberProfile, setBarberProfile] = useState<any>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [completedAppointments, setCompletedAppointments] = useState<Appointment[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isAvailable, setIsAvailable] = useState(true);
   const [walkInEnabled, setWalkInEnabled] = useState(true);
@@ -67,6 +71,7 @@ export default function BarberDashboard() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -94,6 +99,7 @@ export default function BarberDashboard() {
     setUser(user);
     await fetchBarberData(user.id);
     await fetchAppointments(user.id);
+    await fetchCompletedAppointments(user.id);
     await fetchQueue(user.id);
     setLoading(false);
 
@@ -141,6 +147,25 @@ export default function BarberDashboard() {
 
     if (data) {
       setAppointments(data as any);
+    }
+  };
+
+  const fetchCompletedAppointments = async (userId: string) => {
+    const { data } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        customer:profiles!appointments_customer_id_fkey(name, phone),
+        service:services(service_name, price, duration_minutes)
+      `)
+      .eq('barber_id', userId)
+      .eq('status', 'completed')
+      .order('appointment_date', { ascending: false })
+      .order('appointment_time', { ascending: false })
+      .limit(20);
+
+    if (data) {
+      setCompletedAppointments(data as any);
     }
   };
 
@@ -221,6 +246,7 @@ export default function BarberDashboard() {
 
     if (!error) {
       fetchAppointments(user.id);
+      fetchCompletedAppointments(user.id);
       // Send WhatsApp service completed notification
       // Fetch appointment details for phone, salonName, service
       const { data: appt } = await supabase
@@ -321,6 +347,20 @@ export default function BarberDashboard() {
     return `${window.location.origin}/barber/${user.id}/queue`;
   };
 
+  const generateReviewLink = (appointmentId: string) => {
+    return `${window.location.origin}/review/${appointmentId}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLink(text);
+      setTimeout(() => setCopiedLink(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 flex items-center justify-center">
@@ -357,6 +397,13 @@ export default function BarberDashboard() {
               >
                 <Image className="h-4 w-4 mr-2" />
                 Services
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/barber/reviews')}
+              >
+                <Star className="h-4 w-4 mr-2" />
+                Reviews
               </Button>
               <Button 
                 variant="outline" 
@@ -413,6 +460,17 @@ export default function BarberDashboard() {
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
+                    router.push('/barber/reviews');
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Reviews
+                </Button>
+                <Button 
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
                     router.push('/barber/profile');
                     setIsMenuOpen(false);
                   }}
@@ -440,9 +498,10 @@ export default function BarberDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs defaultValue="today" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="queue">Queue ({queue.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed</TabsTrigger>
             <TabsTrigger value="qr-code">QR Code</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
@@ -593,6 +652,76 @@ export default function BarberDashboard() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="completed" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Completed Appointments</CardTitle>
+                <CardDescription>
+                  Generate review links for your customers
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {completedAppointments.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No completed appointments</p>
+                ) : (
+                  <div className="space-y-4">
+                    {completedAppointments.map((appointment) => {
+                      const reviewLink = generateReviewLink(appointment.id);
+                      const isCopied = copiedLink === reviewLink;
+                      
+                      return (
+                        <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex items-center space-x-2">
+                                <Clock className="h-4 w-4 text-gray-400" />
+                                <span className="font-medium">
+                                  {format(new Date(appointment.appointment_date), 'MMM d')} at {appointment.appointment_time}
+                                </span>
+                              </div>
+                              <Badge variant="default">Completed</Badge>
+                            </div>
+                            <p className="font-medium mt-1">{appointment.customer?.name}</p>
+                            <p className="text-sm text-gray-600">
+                              {appointment.service?.service_name} - ${appointment.service?.price}
+                            </p>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(reviewLink)}
+                              className={isCopied ? "bg-green-50 border-green-200" : ""}
+                            >
+                              {isCopied ? (
+                                <>
+                                  <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  Copy Link
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => window.open(reviewLink, '_blank')}
+                            >
+                              <Share2 className="h-4 w-4 mr-1" />
+                              Open
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

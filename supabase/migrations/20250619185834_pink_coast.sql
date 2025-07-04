@@ -236,6 +236,52 @@ CREATE POLICY "System can create notifications"
   TO authenticated
   WITH CHECK (true);
 
+-- Reviews and Ratings Tables
+CREATE TABLE IF NOT EXISTS reviews (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  barber_id uuid NOT NULL REFERENCES barber_profiles(user_id) ON DELETE CASCADE,
+  appointment_id uuid NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text text,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(customer_id, appointment_id)
+);
+
+-- Enable RLS on reviews table
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+
+-- Reviews policies
+CREATE POLICY "Customers can read all reviews"
+  ON reviews
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Customers can create reviews for their own appointments"
+  ON reviews
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    customer_id = auth.uid() AND
+    appointment_id IN (
+      SELECT id FROM appointments 
+      WHERE customer_id = auth.uid() AND status = 'completed'
+    )
+  );
+
+CREATE POLICY "Customers can update their own reviews"
+  ON reviews
+  FOR UPDATE
+  TO authenticated
+  USING (customer_id = auth.uid());
+
+CREATE POLICY "Customers can delete their own reviews"
+  ON reviews
+  FOR DELETE
+  TO authenticated
+  USING (customer_id = auth.uid());
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_appointments_barber_date ON appointments(barber_id, appointment_date);
 CREATE INDEX IF NOT EXISTS idx_queue_barber_position ON queue(barber_id, position);

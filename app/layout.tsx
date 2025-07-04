@@ -5,7 +5,7 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'TrimsHive - Smart Walk-in & Appointment System',
+  title: 'TrimsHive - Smart Walk-in & Appointment System for Salons',
   description: 'Book appointments or join virtual queues at your favorite salons. Real-time notifications and seamless booking experience.',
   generator: 'Iysah - TheProductDude'
 };

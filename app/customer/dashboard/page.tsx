@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { StarRating } from '@/components/ui/star-rating';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Search, 
   MapPin, 
@@ -18,7 +20,8 @@ import {
   Scissors,
   LogOut,
   User,
-  Menu
+  Menu,
+  Filter
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -39,6 +42,8 @@ interface Barber {
     price: number;
     duration_minutes: number;
   }>;
+  average_rating?: number;
+  review_count?: number;
 }
 
 interface Appointment {
@@ -60,6 +65,7 @@ export default function CustomerDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'rating'>('rating');
   const router = useRouter();
 
   useEffect(() => {
@@ -90,7 +96,28 @@ export default function CustomerDashboard() {
       .eq('is_available', true);
 
     if (data) {
-      setBarbers(data as any);
+      // Fetch ratings for each barber
+      const barbersWithRatings = await Promise.all(
+        data.map(async (barber: any) => {
+          const { data: ratingData } = await supabase
+            .from('reviews')
+            .select('rating')
+            .eq('barber_id', barber.user_id);
+
+          const ratings = ratingData || [];
+          const averageRating = ratings.length > 0 
+            ? ratings.reduce((sum: number, review: any) => sum + review.rating, 0) / ratings.length 
+            : 0;
+
+          return {
+            ...barber,
+            average_rating: averageRating,
+            review_count: ratings.length
+          };
+        })
+      );
+
+      setBarbers(barbersWithRatings);
     }
   };
 
@@ -116,11 +143,19 @@ export default function CustomerDashboard() {
     }
   };
 
-  const filteredBarbers = barbers.filter(barber => 
-    barber?.salon_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    barber?.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    barber?.profile?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAndSortedBarbers = barbers
+    .filter(barber => 
+      barber?.salon_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      barber?.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      barber?.profile?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortBy === 'rating') {
+        return (b.average_rating || 0) - (a.average_rating || 0);
+      } else {
+        return (a.salon_name || '').localeCompare(b.salon_name || '');
+      }
+    });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -210,17 +245,31 @@ export default function CustomerDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
-          {/* Search Bar */}
+          {/* Search and Sort Controls */}
           <Card>
             <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search by salon name, location, or barber..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by salon name, location, or barber..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-400" />
+                  <Select value={sortBy} onValueChange={(value: 'name' | 'rating') => setSortBy(value)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rating">Highest Rated</SelectItem>
+                      <SelectItem value="name">Name A-Z</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -270,7 +319,7 @@ export default function CustomerDashboard() {
 
           {/* Available Barbers */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBarbers?.map((barber) => (
+            {filteredAndSortedBarbers?.map((barber: Barber) => (
               <Card key={barber?.user_id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-start space-x-4">
@@ -291,6 +340,19 @@ export default function CustomerDashboard() {
                         <MapPin className="h-3 w-3 mr-1" />
                         <span className="truncate">{barber?.location}</span>
                       </div>
+                      {barber.average_rating && barber.average_rating > 0 && (
+                        <div className="flex items-center mt-2">
+                          <StarRating 
+                            rating={barber.average_rating} 
+                            readonly 
+                            size="sm" 
+                            showValue 
+                          />
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({barber.review_count} reviews)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -352,7 +414,7 @@ export default function CustomerDashboard() {
             ))}
           </div>
 
-          {filteredBarbers.length === 0 && (
+          {filteredAndSortedBarbers.length === 0 && (
             <Card>
               <CardContent className="text-center py-12">
                 <Scissors className="h-12 w-12 text-gray-400 mx-auto mb-4" />
