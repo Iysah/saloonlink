@@ -498,11 +498,11 @@ export default function BarberDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs defaultValue="today" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="queue">Queue ({queue.length})</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="qr-code">QR Code</TabsTrigger>
+            {/* <TabsTrigger value="qr-code">QR Code</TabsTrigger> */}
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -728,7 +728,7 @@ export default function BarberDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="qr-code" className="space-y-6">
+          {/* <TabsContent value="qr-code" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>QR Code for Walk-ins</CardTitle>
@@ -770,9 +770,50 @@ export default function BarberDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent> */}
 
           <TabsContent value="settings" className="space-y-6">
+          <Card>
+              <CardHeader>
+                <CardTitle>QR Code for Walk-ins</CardTitle>
+                <CardDescription>
+                  Customers can scan this to join your queue
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="bg-white p-8 rounded-lg inline-block border-2 border-dashed border-gray-300">
+                  {qrCodeUrl ? (
+                    <img src={qrCodeUrl} alt="Queue QR Code" className="h-32 w-32 mx-auto mb-4" />
+                  ) : (
+                    <QrCode className="h-32 w-32 text-gray-400 mx-auto mb-4" />
+                  )}
+                  <p className="text-sm text-gray-600 mb-4">Scan to join the queue</p>
+                  <p className="text-xs text-gray-500 max-w-xs">
+                    {getQueueUrl()}
+                  </p>
+                </div>
+                <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
+                  <Button variant="outline" onClick={() => window.open(getQueueUrl(), '_blank')}>
+                    Open Queue Page
+                  </Button>
+                  <Button
+                    // variant="outline"
+                    onClick={() => {
+                      if (!qrCodeUrl) return;
+                      const link = document.createElement('a');
+                      link.href = qrCodeUrl;
+                      link.download = 'queue-qr-code.png';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    disabled={!qrCodeUrl}
+                  >
+                    Download QR Code
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Availability Settings</CardTitle>

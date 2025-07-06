@@ -22,7 +22,7 @@ export default function Navbar() {
             <Link href="/#how-it-works" className="text-gray-600 hover:text-primary transition-colors">
               How It Works
             </Link>
-            <Link href="/pricing" className="text-emerald-600 font-medium hover:text-emerald-600/80">
+            <Link href="/pricing" className="text-gray-600 font-medium hover:text-emerald-600/80">
               Pricing
             </Link>
             <Link href="/#testimonials" className="text-gray-600 hover:text-primary transition-colors">
