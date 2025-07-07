@@ -129,7 +129,7 @@ export default function BarberServicesPage() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="secondary">${service.price}</Badge>
+                      <Badge variant="secondary">₦{service.price}</Badge>
                       <Badge variant="outline">{service.duration_minutes}min</Badge>
                       <Button variant="outline" size="sm">
                         <Edit className="h-4 w-4 mr-1" />

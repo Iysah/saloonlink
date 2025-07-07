@@ -238,7 +238,7 @@ export default function BarberSetupPage() {
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
                               <span className="font-medium">{service.service_name}</span>
-                              <Badge variant="secondary">${service.price}</Badge>
+                              <Badge variant="secondary">₦{service.price}</Badge>
                               <Badge variant="outline">{service.duration_minutes}min</Badge>
                             </div>
                             <div className="flex items-center space-x-2">
