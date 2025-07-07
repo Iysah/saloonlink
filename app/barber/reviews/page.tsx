@@ -185,7 +185,7 @@ export default function BarberReviewsPage() {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Average Rating</p>
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
                       <span className="text-2xl font-bold text-gray-900">
                         {stats.averageRating.toFixed(1)}
                       </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,9 +51,48 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
-    if (barberId) {
+    checkAuthentication();
+    
+    // Listen for auth state changes (token expiration, logout, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+        router.push('/auth/login');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  const checkAuthentication = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/auth/login');
+      return;
+    }
+    setIsAuthenticated(true);
+    setCurrentUserId(user.id);
+    
+    // Fetch customer profile for autofill
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, phone')
+      .eq('id', user.id)
+      .single();
+    if (profile) {
+      setCustomerName(profile.name || '');
+      setCustomerPhone(profile.phone || '');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && barberId) {
       fetchBarberInfo();
       fetchQueue();
       const queueSubscription = supabase
@@ -64,27 +104,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [barberId]);
-
-  useEffect(() => {
-    // Fetch customer profile if logged in
-    const fetchCustomerProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('name, phone')
-          .eq('id', user.id)
-          .single();
-        if (profile) {
-          setCustomerName(profile.name || '');
-          setCustomerPhone(profile.phone || '');
-        }
-      }
-    };
-    fetchCustomerProfile();
-  }, []);
+  }, [barberId, isAuthenticated]);
 
   const fetchBarberInfo = async () => {
     const { data } = await supabase
@@ -95,7 +115,6 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     if (data) {
       setBarber(data as any);
     }
-    setLoading(false);
   };
 
   const fetchQueue = async () => {
@@ -168,12 +187,14 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     return position * averageServiceTime;
   };
 
-  if (loading) {
+  if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50 flex items-center justify-center">
         <div className="text-center">
           <Scissors className="h-12 w-12 text-emerald-600 mx-auto mb-4 animate-pulse" />
-          <p className="text-gray-600">Loading queue...</p>
+          <p className="text-gray-600">
+            {!isAuthenticated ? 'Checking authentication...' : 'Loading queue...'}
+          </p>
         </div>
       </div>
     );
