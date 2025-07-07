@@ -12,6 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, User, MapPin, Building, ArrowLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { ProfilePictureUpload } from "@/components/ui/profile-picture-upload";
 
 export default function BarberProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -86,6 +87,16 @@ export default function BarberProfilePage() {
     setError("");
     setSuccess("");
     try {
+      // Update profiles table with name and profile_picture
+      const { error: userProfileError } = await supabase
+        .from("profiles")
+        .update({
+          name: profile.name,
+          profile_picture: profile.profile_picture
+        })
+        .eq("id", user.id);
+      if (userProfileError) throw userProfileError;
+
       // Update barber_profiles
       const { error: profileError } = await supabase
         .from("barber_profiles")
@@ -164,12 +175,12 @@ export default function BarberProfilePage() {
           </button>
         </div>
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={profile.profile_picture} />
-              <AvatarFallback>{profile.name?.charAt(0)}</AvatarFallback>
-            </Avatar>
-          </div>
+          <ProfilePictureUpload
+            userId={user.id}
+            currentImageUrl={profile.profile_picture}
+            onImageUploaded={(imageUrl) => setProfile({ ...profile, profile_picture: imageUrl })}
+            className="mb-4"
+          />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{profile.name}</h1>
         </div>
         <Card className="shadow-xl">
@@ -189,6 +200,20 @@ export default function BarberProfilePage() {
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
+              <div className="space-y-2">
+                <Label htmlFor="name">Your Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="name"
+                    placeholder="Enter your name"
+                    value={profile.name}
+                    onChange={handleChange}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="salon_name">Salon Name</Label>
                 <div className="relative">
