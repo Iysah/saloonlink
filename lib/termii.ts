@@ -42,6 +42,7 @@ export class TermiiWhatsAppService {
         api_key: this.apiKey,
         data,
       };
+      console.log(payload);
       try {
         const response = await fetch(this.baseUrl, {
           method: 'POST',
@@ -66,33 +67,37 @@ export class TermiiWhatsAppService {
   
     async sendQueueConfirmation(phone: string | string[], salonName: string, position: number, estimatedWait: number) {
       return this.sendTemplateMessage(phone, 'queueConfirmation', {
-        product_name: salonName,
-        otp: position,
-        expiry_time: `${estimatedWait} minutes`,
+        salonName: salonName,
+        date: position.toString(),
+        time: `${estimatedWait} minutes`,
+        service: '0',
       });
     }
   
     async sendQueueAlert(phone: string | string[], salonName: string, position: number) {
       return this.sendTemplateMessage(phone, 'queueAlert', {
-        product_name: salonName,
-        otp: position,
-        expiry_time: '',
+        salonName: salonName,
+        date: position.toString(),
+        time: '0',
+        service: '0',
       });
     }
   
     async sendAppointmentConfirmation(phone: string | string[], salonName: string, date: string, time: string, service: string) {
       return this.sendTemplateMessage(phone, 'appointmentConfirmation', {
-        product_name: salonName,
-        otp: time,
-        expiry_time: service,
+        salonName: salonName,
+        date: date,
+        time: time,
+        service: service,
       });
     }
   
     async sendAppointmentReminder(phone: string | string[], salonName: string, time: string, service: string) {
       return this.sendTemplateMessage(phone, 'appointmentReminder', {
-        product_name: salonName,
-        otp: time,
-        expiry_time: service,
+        salonName: salonName,
+        time: time,
+        date: '0',
+        service: service,
       });
     }
 
@@ -102,11 +107,10 @@ export class TermiiWhatsAppService {
      * @param salonName
      */
     async sendNextInLineAlert(phone: string | string[], salonName: string) {
-      // Use queueAlert template, set otp to 'NEXT'
+      // Use queueAlert template, set position to 'NEXT'
       return this.sendTemplateMessage(phone, 'queueAlert', {
-        product_name: salonName,
-        otp: 'NEXT',
-        expiry_time: '',
+        salonName: salonName,
+        position: 'NEXT',
       });
     }
 
@@ -117,11 +121,11 @@ export class TermiiWhatsAppService {
      * @param service
      */
     async sendAppointmentStarted(phone: string | string[], salonName: string, service: string) {
-      // Use appointmentConfirmation template, set otp to 'Started', expiry_time to service
+      // Use appointmentConfirmation template, set time to 'Started', service to service
       return this.sendTemplateMessage(phone, 'appointmentConfirmation', {
-        product_name: salonName,
-        otp: 'Started',
-        expiry_time: service,
+        salonName: salonName,
+        time: 'Started',
+        service: service,
       });
     }
 
@@ -132,11 +136,11 @@ export class TermiiWhatsAppService {
      * @param service
      */
     async sendServiceCompleted(phone: string | string[], salonName: string, service: string) {
-      // Use appointmentConfirmation template, set otp to 'Completed', expiry_time to service
+      // Use appointmentConfirmation template, set time to 'Completed', service to service
       return this.sendTemplateMessage(phone, 'appointmentConfirmation', {
-        product_name: salonName,
-        otp: 'Completed',
-        expiry_time: service,
+        salonName: salonName,
+        time: 'Completed',
+        service: service,
       });
     }
 }
