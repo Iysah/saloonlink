@@ -118,6 +118,7 @@ export default function CustomerDashboard() {
       );
 
       setBarbers(barbersWithRatings);
+      console.log(barbersWithRatings);
     }
   };
 

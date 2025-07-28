@@ -45,12 +45,14 @@ export default function BookBarberPage() {
       return;
     }
     setUser(user);
-    // Fetch customer profile for autofill
+    // Fetch customer profile for autofill - handle potential multiple rows gracefully
     const { data: profile } = await supabase
       .from('profiles')
       .select('name, phone')
       .eq('id', user.id)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (profile) {
       setCustomerName(profile.name || '');
       setCustomerPhone(profile.phone || '');
@@ -60,11 +62,24 @@ export default function BookBarberPage() {
   };
 
   const fetchBarberInfo = async () => {
-    const { data: barberData } = await supabase
+    const { data: barberData, error: barberError } = await supabase
       .from("barber_profiles")
       .select("*, profile:profiles(name, profile_picture)")
       .eq("user_id", barberId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (barberError) {
+      console.error("Error fetching barber info:", barberError);
+      return;
+    }
+    
+    if (!barberData) {
+      console.error("Barber not found");
+      return;
+    }
+    
     setBarber(barberData);
     const { data: servicesData } = await supabase
       .from("services")
@@ -101,12 +116,14 @@ export default function BookBarberPage() {
         throw insertError;
       }
       console.log("[Book] Appointment inserted successfully");
-      // Fetch customer phone number
+      // Fetch customer phone number - handle potential multiple rows gracefully
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("phone")
         .eq("id", user.id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (profileError) {
         console.error("[Book] Error fetching profile:", profileError);
       }

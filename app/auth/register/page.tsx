@@ -32,38 +32,40 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      // Create auth user
+      // Create auth user with metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            role: formData.role,
+            phone: formData.phone
+          }
+        }
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error('Failed to create user');
 
-      // Create profile
+      // The database trigger will automatically create the profile
+      // Wait a moment for the trigger to execute
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update the profile with the correct information (in case trigger used defaults)
+      // Use upsert to handle cases where profile might already exist
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: authData.user.id,
-          // user_id: authData.user.id,
           name: formData.name,
           role: formData.role,
           phone: formData.phone
+        }, {
+          onConflict: 'id'
         });
 
       if (profileError) throw profileError;
-
-      // If barber, create barber profile
-      if (formData.role === 'barber') {
-        const { error: barberError } = await supabase
-          .from('barber_profiles')
-          .insert({
-            user_id: authData.user.id
-          });
-
-        if (barberError) throw barberError;
-      }
 
       // Redirect to appropriate setup page
       if (formData.role === 'barber') {

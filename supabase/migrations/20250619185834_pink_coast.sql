@@ -286,3 +286,18 @@ CREATE POLICY "Customers can delete their own reviews"
 CREATE INDEX IF NOT EXISTS idx_appointments_barber_date ON appointments(barber_id, appointment_date);
 CREATE INDEX IF NOT EXISTS idx_queue_barber_position ON queue(barber_id, position);
 CREATE INDEX IF NOT EXISTS idx_services_barber ON services(barber_id);
+
+
+Request ID: 1be5af64-cdab-415d-86a5-214e77a9d5ea
+{"error":"ERROR_USER_ABORTED_REQUEST","details":{"title":"User aborted request.","detail":"Tool call ended before result was received","isRetryable":false,"additionalInfo":{},"buttons":[]},"isExpected":true}
+ConnectError: [aborted] Error
+    at x9a.$endAiConnectTransportReportError (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:4757:223764)
+    at hir.S (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:492:17741)
+    at hir.Q (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:492:17519)
+    at hir.M (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:492:16607)
+    at hir.L (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:492:15708)
+    at Bwt.value (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:492:14500)
+    at ve.B (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:48:2398)
+    at ve.fire (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:48:2617)
+    at Git.fire (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:4744:10379)
+    at u.onmessage (vscode-file://vscode-app/Applications/Cursor.app/Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js:6968:12271)

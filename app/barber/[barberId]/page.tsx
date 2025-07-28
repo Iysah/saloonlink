@@ -66,14 +66,22 @@ export default function BarberDetailsPage() {
 
   const fetchBarberDetails = async () => {
     try {
-      // Fetch barber profile
+      // Fetch barber profile - handle potential multiple rows gracefully
       const { data: barberData, error: barberError } = await supabase
         .from('barber_profiles')
         .select('*, profile:profiles(name, profile_picture)')
         .eq('user_id', barberId)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (barberError) throw barberError;
+      
+      if (!barberData) {
+        setError('Barber not found');
+        return;
+      }
+      
       setBarber(barberData as any);
 
       // Fetch services with images

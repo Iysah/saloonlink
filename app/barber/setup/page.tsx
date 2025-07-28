@@ -51,14 +51,48 @@ export default function BarberSetupPage() {
     setUser(user);
 
     // Check if already set up
-    const { data: barberProfile } = await supabase
+    const { data: barberProfile, error: profileError } = await supabase
       .from('barber_profiles')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Error fetching barber profile:', profileError);
+      
+      // If the error is 406 or the record doesn't exist, create the barber_profiles record
+      if (profileError.code === '406' || profileError.message.includes('406') || profileError.code === 'PGRST116') {
+        console.log('Attempting to create barber profile...');
+        const { error: insertError } = await supabase
+          .from('barber_profiles')
+          .insert({ user_id: user.id });
+        
+        if (insertError) {
+          console.error('Error creating barber profile:', insertError);
+        } else {
+          console.log('Barber profile created successfully');
+          // Update user role to barber
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ role: 'barber' })
+            .eq('id', user.id);
+          
+          if (updateError) {
+            console.error('Error updating user role:', updateError);
+          }
+        }
+      }
+    }
 
     if (barberProfile && barberProfile.salon_name) {
       router.push('/barber/dashboard');
+    } else if (barberProfile) {
+      // If profile exists but is incomplete, populate form with existing data
+      setProfile({
+        bio: barberProfile.bio || '',
+        salon_name: barberProfile.salon_name || '',
+        location: barberProfile.location || ''
+      });
     }
   };
 
@@ -88,6 +122,22 @@ export default function BarberSetupPage() {
     setError('');
 
     try {
+      // Ensure barber profile exists
+      const { data: existingProfile } = await supabase
+        .from('barber_profiles')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        // Create barber profile if it doesn't exist
+        const { error: createError } = await supabase
+          .from('barber_profiles')
+          .insert({ user_id: user.id });
+        
+        if (createError) throw createError;
+      }
+
       // Update barber profile
       const { error: profileError } = await supabase
         .from('barber_profiles')

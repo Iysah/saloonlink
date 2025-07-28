@@ -75,8 +75,42 @@ export default function BarberDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    checkUser();
-  }, []);
+    let queueSubscription: any;
+    
+    const initializeData = async () => {
+      await checkUser();
+      
+      if (user) {
+        await fetchBarberData(user.id);
+        await fetchAppointments(user.id);
+        await fetchCompletedAppointments(user.id);
+        await fetchQueue(user.id);
+        setLoading(false);
+
+        // Set up real-time subscriptions
+        console.log('Setting up queue subscription for user:', user.id);
+        queueSubscription = supabase
+          .channel(`queue-changes-${user.id}`)
+          .on('postgres_changes', 
+            { event: '*', schema: 'public', table: 'queue' },
+            () => {
+              console.log('Queue change detected, fetching updated queue...');
+              fetchQueue(user.id);
+            }
+          )
+          .subscribe();
+      }
+    };
+
+    initializeData();
+
+    return () => {
+      if (queueSubscription) {
+        console.log('Cleaning up queue subscription...');
+        supabase.removeChannel(queueSubscription);
+      }
+    };
+  }, [user?.id]); // Only re-run when user.id changes
 
   useEffect(() => {
     if (user) {
@@ -95,34 +129,22 @@ export default function BarberDashboard() {
       router.push('/auth/login');
       return;
     }
-
     setUser(user);
-    await fetchBarberData(user.id);
-    await fetchAppointments(user.id);
-    await fetchCompletedAppointments(user.id);
-    await fetchQueue(user.id);
-    setLoading(false);
-
-    // Set up real-time subscriptions
-    const queueSubscription = supabase
-      .channel('queue-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'queue' },
-        () => fetchQueue(user.id)
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(queueSubscription);
-    };
   };
 
   const fetchBarberData = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('barber_profiles')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching barber data:", error);
+      return;
+    }
 
     if (data) {
       setBarberProfile(data);
@@ -383,7 +405,7 @@ export default function BarberDashboard() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  {barberProfile?.salon_name || 'Salon Dashboard'}
+                  {barberProfile?.salon_name || 'My Dashboard'}
                 </h1>
                 <p className="text-sm text-gray-600">{barberProfile?.location}</p>
               </div>
@@ -793,9 +815,9 @@ export default function BarberDashboard() {
                   </p>
                 </div>
                 <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-                  <Button variant="outline" onClick={() => window.open(getQueueUrl(), '_blank')}>
+                  {/* <Button variant="outline" onClick={() => window.open(getQueueUrl(), '_blank')}>
                     Open Queue Page
-                  </Button>
+                  </Button> */}
                   <Button
                     // variant="outline"
                     onClick={() => {

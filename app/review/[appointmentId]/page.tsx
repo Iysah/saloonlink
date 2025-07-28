@@ -53,7 +53,7 @@ export default function ReviewPage() {
         return;
       }
 
-      // Fetch appointment details
+      // Fetch appointment details - handle potential multiple rows gracefully
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
         .select(`
@@ -70,7 +70,9 @@ export default function ReviewPage() {
         `)
         .eq('id', appointmentId)
         .eq('customer_id', user.id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (appointmentError) {
         throw appointmentError;

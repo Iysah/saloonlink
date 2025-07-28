@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +18,13 @@ import {
   Check,
   Bell,
   Zap,
-  Shield
+  Shield,
+  Smartphone,
+  BarChart3,
+  MessageSquare,
+  CreditCard,
+  Settings,
+  TrendingUp
 } from 'lucide-react';
 import Image from "next/image"
 import Link from "next/link"
@@ -26,6 +33,7 @@ import Navbar from '@/components/ui/navbar';
 
 export default function HomePage() {
   const router = useRouter();
+  const { elementRef: featuresRef, isIntersecting: featuresVisible } = useIntersectionObserver();
 
   useEffect(() => {
     checkUser();
@@ -55,22 +63,58 @@ export default function HomePage() {
     {
       icon: Calendar,
       title: 'Smart Booking',
-      description: 'Book appointments with your favorite stylists in advance'
+      description: 'Book appointments with your favorite stylists in advance',
+      color: 'emerald',
+      size: 'large'
     },
     {
       icon: Users,
       title: 'Walk-in Queue',
-      description: 'Join virtual queues and get notified when it\'s your turn'
+      description: 'Join virtual queues and get notified when it\'s your turn',
+      color: 'amber',
+      size: 'medium'
     },
     {
       icon: Clock,
       title: 'Real-time Updates',
-      description: 'Get instant notifications about your appointment status'
+      description: 'Get instant notifications about your appointment status',
+      color: 'rose',
+      size: 'medium'
     },
     {
       icon: MapPin,
       title: 'Find Nearby',
-      description: 'Discover great barbers and salons in your area'
+      description: 'Discover great barbers and salons in your area',
+      color: 'blue',
+      size: 'small'
+    },
+    {
+      icon: Smartphone,
+      title: 'Mobile App',
+      description: 'Access your salon management tools on the go',
+      color: 'purple',
+      size: 'small'
+    },
+    {
+      icon: BarChart3,
+      title: 'Analytics',
+      description: 'Track performance and optimize your business',
+      color: 'indigo',
+      size: 'large'
+    },
+    {
+      icon: MessageSquare,
+      title: 'WhatsApp Integration',
+      description: 'Send notifications directly to customers',
+      color: 'green',
+      size: 'medium'
+    },
+    {
+      icon: CreditCard,
+      title: 'Payment Processing',
+      description: 'Accept payments securely online and offline',
+      color: 'teal',
+      size: 'small'
     }
   ];
 
@@ -224,36 +268,113 @@ export default function HomePage() {
         </div>
       </div> */}
 
-      {/* Features Section */}
-      <div id='#features' className="py-16 bg-gradient-to-br from-gray-50 to-emerald-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+      {/* Features Section - Bento Grid */}
+      <div id='#features' className="py-20 bg-gradient-to-br from-gray-50 via-emerald-50 to-rose-50 relative overflow-hidden">
+        {/* Floating decorative elements */}
+        <div className="absolute top-20 left-10 w-32 h-32 bg-emerald-200/30 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-40 h-40 bg-rose-200/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-amber-200/30 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-extrabold text-gray-900 sm:text-5xl mb-4">
               Everything you need to run a modern salon
             </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
-              Modern solutions for both customers and barbers
+            <p className="mt-4 max-w-3xl mx-auto text-xl text-gray-600">
+              Modern solutions for both customers and barbers, designed to streamline your entire salon experience
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6 text-center">
-                  <div className="flex justify-center mb-4">
-                    <div className="bg-emerald-100 p-3 rounded-full">
-                      <feature.icon className="h-8 w-8 text-emerald-600" />
+          {/* Bento Grid Layout */}
+          <div ref={featuresRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-fr">
+            {features.map((feature, index) => {
+              const colorClasses = {
+                emerald: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
+                amber: 'bg-amber-50 border-amber-200 hover:bg-amber-100',
+                rose: 'bg-rose-50 border-rose-200 hover:bg-rose-100',
+                blue: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
+                purple: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
+                indigo: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100',
+                green: 'bg-green-50 border-green-200 hover:bg-green-100',
+                teal: 'bg-teal-50 border-teal-200 hover:bg-teal-100'
+              };
+
+              const iconColorClasses = {
+                emerald: 'text-emerald-600 bg-emerald-100',
+                amber: 'text-amber-600 bg-amber-100',
+                rose: 'text-rose-600 bg-rose-100',
+                blue: 'text-blue-600 bg-blue-100',
+                purple: 'text-purple-600 bg-purple-100',
+                indigo: 'text-indigo-600 bg-indigo-100',
+                green: 'text-green-600 bg-green-100',
+                teal: 'text-teal-600 bg-teal-100'
+              };
+
+              const sizeClasses = {
+                small: 'md:col-span-1 md:row-span-1',
+                medium: 'md:col-span-1 md:row-span-2',
+                large: 'md:col-span-2 md:row-span-2'
+              };
+
+              return (
+                <Card 
+                  key={index} 
+                  className={`
+                    group relative overflow-hidden border-2 transition-all duration-500 ease-out
+                    hover:scale-105 hover:shadow-2xl hover:shadow-black/10
+                    ${colorClasses[feature.color as keyof typeof colorClasses]}
+                    ${sizeClasses[feature.size as keyof typeof sizeClasses]}
+                    ${featuresVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}
+                  `}
+                  style={{
+                    transitionDelay: `${index * 100}ms`,
+                    transitionDuration: '0.6s',
+                    transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
+                >
+                  <CardContent className="p-6 h-full flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className={`
+                          p-3 rounded-xl transition-transform duration-300 group-hover:scale-110
+                          ${iconColorClasses[feature.color as keyof typeof iconColorClasses]}
+                        `}>
+                          <feature.icon className="h-6 w-6" />
+                        </div>
+                        {feature.size === 'large' && (
+                          <div className="text-xs font-medium text-gray-500 bg-white/50 px-2 py-1 rounded-full">
+                            Premium
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-gray-700 transition-colors">
+                          {feature.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {feature.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600">
-                    {feature.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Decorative elements */}
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-white/20 to-transparent rounded-full -translate-y-10 translate-x-10 group-hover:scale-150 transition-transform duration-700"></div>
+                    
+                    {/* Hover effect overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Additional decorative elements */}
+          <div className="mt-16 text-center">
+            <div className="inline-flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-lg">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-gray-700">All features included in your subscription</span>
+            </div>
           </div>
         </div>
       </div>

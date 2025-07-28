@@ -156,7 +156,7 @@ export default function BarberReviewsPage() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50">
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center py-4">
+          <div className="flex items-center sm:flex-col sm:items-start py-4">
             <Button
               variant="ghost"
               onClick={() => router.push('/barber/dashboard')}

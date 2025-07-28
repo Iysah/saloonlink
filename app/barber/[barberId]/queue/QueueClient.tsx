@@ -96,7 +96,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
       fetchBarberInfo();
       fetchQueue();
       const queueSubscription = supabase
-        .channel('queue-changes')
+        .channel(`queue-changes-barber-${barberId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'queue', filter: `barber_id=eq.${barberId}` }, () => fetchQueue())
         .subscribe();
       return () => {
@@ -107,11 +107,19 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   }, [barberId, isAuthenticated]);
 
   const fetchBarberInfo = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('barber_profiles')
       .select(`*, profile:profiles(name, profile_picture)`)
       .eq('user_id', barberId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error fetching barber info:", error);
+      return;
+    }
+    
     if (data) {
       setBarber(data as any);
     }

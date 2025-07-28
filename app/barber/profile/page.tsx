@@ -51,12 +51,19 @@ export default function BarberProfilePage() {
   };
 
   const fetchProfile = async (userId: string) => {
-    // Fetch barber profile and user profile
-    const { data: barberProfile } = await supabase
+    // Fetch barber profile and user profile - handle potential multiple rows gracefully
+    const { data: barberProfile, error } = await supabase
       .from("barber_profiles")
       .select("*, profile:profiles(name, profile_picture)")
       .eq("user_id", userId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error fetching barber profile:", error);
+      return;
+    }
     if (barberProfile) {
       setProfile({
         name: barberProfile.profile?.name || "",
@@ -269,7 +276,7 @@ export default function BarberProfilePage() {
             </form>
           </CardContent>
         </Card>
-        <Card className="shadow-xl mt-8">
+        {/* <Card className="shadow-xl mt-8">
           <CardHeader>
             <CardTitle>Services</CardTitle>
             <CardDescription>Add and manage your offered services</CardDescription>
@@ -356,7 +363,7 @@ export default function BarberProfilePage() {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );
