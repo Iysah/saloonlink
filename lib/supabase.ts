@@ -14,8 +14,11 @@ export type Database = {
           name: string;
           role: 'customer' | 'barber';
           phone: string | null;
+          email: string | null;
           profile_picture: string | null;
           created_at: string;
+          subscription: JSON | null,
+         
         };
         Insert: {
           id: string;
@@ -24,6 +27,8 @@ export type Database = {
           phone?: string | null;
           profile_picture?: string | null;
           created_at?: string;
+          subscription: JSON | null
+          email: string | null;
         };
         Update: {
           id?: string;
@@ -32,6 +37,8 @@ export type Database = {
           phone?: string | null;
           profile_picture?: string | null;
           created_at?: string;
+          subscription: JSON | null
+          email: string | null;
         };
       };
       barber_profiles: {

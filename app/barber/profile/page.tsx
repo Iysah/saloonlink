@@ -203,7 +203,7 @@ export default function BarberProfilePage() {
                 </Alert>
               )}
               {success && (
-                <Alert variant="default">
+                <Alert className="text-green-600 bg-green-50" variant="default">
                   <AlertDescription>{success}</AlertDescription>
                 </Alert>
               )}
