@@ -2,13 +2,14 @@ export interface TProfile {
   name: string;
   id: string;
   phone: string;
-  email: string;
+  email?: string;
   role: string;
   profile_picture: string;
   date_of_birth: string | null;
   gender: string | null;
   created_at: string;
 
+ subscription : {
   subscription: {
     plan: "basic" | "premium" | "enterprise";
     features: {
@@ -48,5 +49,6 @@ export interface TProfile {
     active: boolean;
     start_date: string | null;
     billing_cycle: "monthly" | "yearly" | null;
-  } | null;
+  } 
+ } | null;
 }

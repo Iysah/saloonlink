@@ -1,18 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Calendar, 
-  Clock, 
-  Users, 
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Calendar,
+  Clock,
+  Users,
   Settings,
   QrCode,
   MapPin,
@@ -25,10 +31,11 @@ import {
   Image,
   Star,
   Copy,
-  Share2
-} from 'lucide-react';
-import { format } from 'date-fns';
-import QRCode from 'qrcode';
+  Share2,
+} from "lucide-react";
+import { format } from "date-fns";
+import QRCode from "qrcode";
+import { TProfile } from "@/types/profile.type";
 
 interface Appointment {
   id: string;
@@ -62,8 +69,11 @@ interface QueueItem {
 export default function BarberDashboard() {
   const [user, setUser] = useState<any>(null);
   const [barberProfile, setBarberProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<TProfile | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [completedAppointments, setCompletedAppointments] = useState<Appointment[]>([]);
+  const [completedAppointments, setCompletedAppointments] = useState<
+    Appointment[]
+  >([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isAvailable, setIsAvailable] = useState(true);
   const [walkInEnabled, setWalkInEnabled] = useState(true);
@@ -76,40 +86,48 @@ export default function BarberDashboard() {
 
   useEffect(() => {
     let queueSubscription: any;
-    
+
     const initializeData = async () => {
       await checkUser();
-      
+
       if (user) {
-        await fetchBarberData(user.id);
-        await fetchAppointments(user.id);
-        await fetchCompletedAppointments(user.id);
-        await fetchQueue(user.id);
         setLoading(false);
 
-        // Set up real-time subscriptions
-        console.log('Setting up queue subscription for user:', user.id);
-        queueSubscription = supabase
-          .channel(`queue-changes-${user.id}`)
-          .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'queue' },
-            () => {
-              console.log('Queue change detected, fetching updated queue...');
-              fetchQueue(user.id);
-            }
-          )
-          .subscribe();
+        await Promise.all([
+          await fetchBarberData(user.id),
+          await fetchAppointments(user.id),
+          await fetchCompletedAppointments(user.id),
+          await fetchQueue(user.id),
+          await fetchUserData(user.id),
+        ])
+          .then((res) => {})
+          .catch((error) => {
+            console.log(error);
+          });
+
+        // // Set up real-time subscriptions
+        // console.log('Setting up queue subscription for user:', user.id);
+        // queueSubscription = supabase
+        //   .channel(`queue-changes-${user.id}`)
+        //   .on('postgres_changes',
+        //     { event: '*', schema: 'public', table: 'queue' },
+        //     () => {
+        //       console.log('Queue change detected, fetching updated queue...');
+        //       fetchQueue(user.id);
+        //     }
+        //   )
+        //   .subscribe();
       }
     };
 
     initializeData();
 
-    return () => {
-      if (queueSubscription) {
-        console.log('Cleaning up queue subscription...');
-        supabase.removeChannel(queueSubscription);
-      }
-    };
+    // return () => {
+    //   if (queueSubscription) {
+    //     console.log('Cleaning up queue subscription...');
+    //     supabase.removeChannel(queueSubscription);
+    //   }
+    // };
   }, [user?.id]); // Only re-run when user.id changes
 
   useEffect(() => {
@@ -124,20 +142,48 @@ export default function BarberDashboard() {
   }, [user]);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      router.push('/auth/login');
+      router.push("/auth/login");
       return;
     }
     setUser(user);
   };
 
+  const fetchUserData = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (data) {
+        setUserProfile(data);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const userSubscription = useMemo(() => {
+    if (userProfile) {
+      return userProfile?.subscription?.subscription;
+    } else {
+      return null;
+    }
+  }, [userProfile]);
+
+  console.log(userProfile, userSubscription);
+
   const fetchBarberData = async (userId: string) => {
     const { data, error } = await supabase
-      .from('barber_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+      .from("barber_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -154,18 +200,20 @@ export default function BarberDashboard() {
   };
 
   const fetchAppointments = async (userId: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    
+    const today = new Date().toISOString().split("T")[0];
+
     const { data } = await supabase
-      .from('appointments')
-      .select(`
+      .from("appointments")
+      .select(
+        `
         *,
         customer:profiles!appointments_customer_id_fkey(name, phone),
         service:services(service_name, price, duration_minutes)
-      `)
-      .eq('barber_id', userId)
-      .eq('appointment_date', today)
-      .order('appointment_time');
+      `
+      )
+      .eq("barber_id", userId)
+      .eq("appointment_date", today)
+      .order("appointment_time");
 
     if (data) {
       setAppointments(data as any);
@@ -174,16 +222,18 @@ export default function BarberDashboard() {
 
   const fetchCompletedAppointments = async (userId: string) => {
     const { data } = await supabase
-      .from('appointments')
-      .select(`
+      .from("appointments")
+      .select(
+        `
         *,
         customer:profiles!appointments_customer_id_fkey(name, phone),
         service:services(service_name, price, duration_minutes)
-      `)
-      .eq('barber_id', userId)
-      .eq('status', 'completed')
-      .order('appointment_date', { ascending: false })
-      .order('appointment_time', { ascending: false })
+      `
+      )
+      .eq("barber_id", userId)
+      .eq("status", "completed")
+      .order("appointment_date", { ascending: false })
+      .order("appointment_time", { ascending: false })
       .limit(20);
 
     if (data) {
@@ -193,11 +243,11 @@ export default function BarberDashboard() {
 
   const fetchQueue = async (userId: string) => {
     const { data } = await supabase
-      .from('queue')
-      .select('*')
-      .eq('barber_id', userId)
-      .eq('status', 'waiting')
-      .order('position');
+      .from("queue")
+      .select("*")
+      .eq("barber_id", userId)
+      .eq("status", "waiting")
+      .order("position");
 
     if (data) {
       setQueue(data);
@@ -208,9 +258,9 @@ export default function BarberDashboard() {
     if (!user) return;
 
     const { error } = await supabase
-      .from('barber_profiles')
+      .from("barber_profiles")
       .update({ is_available: available })
-      .eq('user_id', user.id);
+      .eq("user_id", user.id);
 
     if (!error) {
       setIsAvailable(available);
@@ -221,9 +271,9 @@ export default function BarberDashboard() {
     if (!user) return;
 
     const { error } = await supabase
-      .from('barber_profiles')
+      .from("barber_profiles")
       .update({ walk_in_enabled: enabled })
-      .eq('user_id', user.id);
+      .eq("user_id", user.id);
 
     if (!error) {
       setWalkInEnabled(enabled);
@@ -232,29 +282,41 @@ export default function BarberDashboard() {
 
   const startAppointment = async (appointmentId: string) => {
     const { error } = await supabase
-      .from('appointments')
-      .update({ status: 'in_progress' })
-      .eq('id', appointmentId);
+      .from("appointments")
+      .update({ status: "in_progress" })
+      .eq("id", appointmentId);
 
     if (!error) {
       fetchAppointments(user.id);
       // Send WhatsApp appointment started notification
       // Fetch appointment details for phone, salonName, service
       const { data: appt } = await supabase
-        .from('appointments')
-        .select('customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)')
-        .eq('id', appointmentId)
+        .from("appointments")
+        .select(
+          "customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)"
+        )
+        .eq("id", appointmentId)
         .single();
       if (appt) {
-        const customer = Array.isArray(appt.customer) ? appt.customer[0] : appt.customer;
-        const barber = Array.isArray(appt.barber) ? appt.barber[0] : appt.barber;
-        const service = Array.isArray(appt.service) ? appt.service[0] : appt.service;
+        const customer = Array.isArray(appt.customer)
+          ? appt.customer[0]
+          : appt.customer;
+        const barber = Array.isArray(appt.barber)
+          ? appt.barber[0]
+          : appt.barber;
+        const service = Array.isArray(appt.service)
+          ? appt.service[0]
+          : appt.service;
         const customerPhone = customer?.phone;
         const salonName = barber?.salon_name;
         const serviceName = service?.service_name;
         if (customerPhone && salonName && serviceName) {
           const { whatsappService } = await import("@/lib/termii");
-          await whatsappService.sendAppointmentStarted(customerPhone, salonName, serviceName);
+          await whatsappService.sendAppointmentStarted(
+            customerPhone,
+            salonName,
+            serviceName
+          );
         }
       }
     }
@@ -262,9 +324,9 @@ export default function BarberDashboard() {
 
   const completeAppointment = async (appointmentId: string) => {
     const { error } = await supabase
-      .from('appointments')
-      .update({ status: 'completed' })
-      .eq('id', appointmentId);
+      .from("appointments")
+      .update({ status: "completed" })
+      .eq("id", appointmentId);
 
     if (!error) {
       fetchAppointments(user.id);
@@ -272,20 +334,32 @@ export default function BarberDashboard() {
       // Send WhatsApp service completed notification
       // Fetch appointment details for phone, salonName, service
       const { data: appt } = await supabase
-        .from('appointments')
-        .select('customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)')
-        .eq('id', appointmentId)
+        .from("appointments")
+        .select(
+          "customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)"
+        )
+        .eq("id", appointmentId)
         .single();
       if (appt) {
-        const customer = Array.isArray(appt.customer) ? appt.customer[0] : appt.customer;
-        const barber = Array.isArray(appt.barber) ? appt.barber[0] : appt.barber;
-        const service = Array.isArray(appt.service) ? appt.service[0] : appt.service;
+        const customer = Array.isArray(appt.customer)
+          ? appt.customer[0]
+          : appt.customer;
+        const barber = Array.isArray(appt.barber)
+          ? appt.barber[0]
+          : appt.barber;
+        const service = Array.isArray(appt.service)
+          ? appt.service[0]
+          : appt.service;
         const customerPhone = customer?.phone;
         const salonName = barber?.salon_name;
         const serviceName = service?.service_name;
         if (customerPhone && salonName && serviceName) {
           const { whatsappService } = await import("@/lib/termii");
-          await whatsappService.sendServiceCompleted(customerPhone, salonName, serviceName);
+          await whatsappService.sendServiceCompleted(
+            customerPhone,
+            salonName,
+            serviceName
+          );
         }
       }
     }
@@ -293,9 +367,9 @@ export default function BarberDashboard() {
 
   const startQueueItem = async (queueId: string) => {
     const { error } = await supabase
-      .from('queue')
-      .update({ status: 'in_progress' })
-      .eq('id', queueId);
+      .from("queue")
+      .update({ status: "in_progress" })
+      .eq("id", queueId);
 
     if (!error) {
       fetchQueue(user.id);
@@ -304,9 +378,9 @@ export default function BarberDashboard() {
 
   const completeQueueItem = async (queueId: string) => {
     const { error } = await supabase
-      .from('queue')
-      .update({ status: 'completed' })
-      .eq('id', queueId);
+      .from("queue")
+      .update({ status: "completed" })
+      .eq("id", queueId);
 
     if (!error) {
       fetchQueue(user.id);
@@ -314,11 +388,11 @@ export default function BarberDashboard() {
       await updateQueuePositions();
       // Send WhatsApp alert to the next in line (position 1)
       const { data: waitingQueue } = await supabase
-        .from('queue')
-        .select('*')
-        .eq('barber_id', user.id)
-        .eq('status', 'waiting')
-        .order('position');
+        .from("queue")
+        .select("*")
+        .eq("barber_id", user.id)
+        .eq("status", "waiting")
+        .order("position");
       if (waitingQueue && waitingQueue.length > 0) {
         const next = waitingQueue[0];
         if (next && next.phone && barberProfile?.salon_name) {
@@ -340,20 +414,20 @@ export default function BarberDashboard() {
 
   const updateQueuePositions = async () => {
     if (!user) return;
-    
+
     const { data: waitingQueue } = await supabase
-      .from('queue')
-      .select('id')
-      .eq('barber_id', user.id)
-      .eq('status', 'waiting')
-      .order('join_time');
+      .from("queue")
+      .select("id")
+      .eq("barber_id", user.id)
+      .eq("status", "waiting")
+      .order("join_time");
 
     if (waitingQueue) {
       for (let i = 0; i < waitingQueue.length; i++) {
         await supabase
-          .from('queue')
+          .from("queue")
           .update({ position: i + 1 })
-          .eq('id', waitingQueue[i].id);
+          .eq("id", waitingQueue[i].id);
       }
       fetchQueue(user.id);
     }
@@ -361,11 +435,11 @@ export default function BarberDashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/auth/login');
+    router.push("/auth/login");
   };
 
   const getQueueUrl = () => {
-    if (!user) return '';
+    if (!user) return "";
     return `${window.location.origin}/barber/${user.id}/queue`;
   };
 
@@ -379,7 +453,7 @@ export default function BarberDashboard() {
       setCopiedLink(text);
       setTimeout(() => setCopiedLink(null), 2000);
     } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
+      console.error("Failed to copy to clipboard:", err);
     }
   };
 
@@ -405,31 +479,36 @@ export default function BarberDashboard() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  {barberProfile?.salon_name || 'My Dashboard'}
+                  {barberProfile?.salon_name || "My Dashboard"}
                 </h1>
-                <p className="text-sm text-gray-600">{barberProfile?.location}</p>
+                <p className="text-sm text-gray-600">
+                  {barberProfile?.location}
+                </p>
               </div>
             </div>
 
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                onClick={() => router.push('/barber/services')}
+              <Button
+                variant="outline"
+                onClick={() => router.push("/barber/services")}
               >
                 <Image className="h-4 w-4 mr-2" />
                 Services
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => router.push('/barber/reviews')}
-              >
-                <Star className="h-4 w-4 mr-2" />
-                Reviews
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => router.push('/barber/profile')}
+              {userSubscription !== null &&
+                userSubscription?.plan !== "basic" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push("/barber/reviews")}
+                  >
+                    <Star className="h-4 w-4 mr-2" />
+                    Reviews
+                  </Button>
+                )}
+              <Button
+                variant="outline"
+                onClick={() => router.push("/barber/profile")}
               >
                 <User className="h-4 w-4 mr-2" />
                 Profile
@@ -439,7 +518,6 @@ export default function BarberDashboard() {
                 Logout
               </Button>
             </div>
-
 
             {/* <div className="flex items-center space-x-4">
               <Button 
@@ -457,50 +535,55 @@ export default function BarberDashboard() {
 
             {/* Mobile Menu Button */}
             <div className="md:hidden">
-              <Button variant="outline" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
                 <Menu className="h-6 w-6" />
               </Button>
             </div>
-
           </div>
           {/* Mobile Menu Dropdown */}
           {isMenuOpen && (
             <div className="md:hidden pb-4">
               <div className="flex flex-col space-y-2">
-                <Button 
+                <Button
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    router.push('/barber/services');
+                    router.push("/barber/services");
                     setIsMenuOpen(false);
                   }}
                 >
                   <Image className="h-4 w-4 mr-2" />
                   Services
                 </Button>
-                <Button 
+                {userSubscription !== null &&
+                  userSubscription?.plan !== "basic" && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        router.push("/barber/reviews");
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      <Star className="h-4 w-4 mr-2" />
+                      Reviews
+                    </Button>
+                  )}
+                <Button
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
-                    router.push('/barber/reviews');
-                    setIsMenuOpen(false);
-                  }}
-                >
-                  <Star className="h-4 w-4 mr-2" />
-                  Reviews
-                </Button>
-                <Button 
-                  variant="ghost"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    router.push('/barber/profile');
+                    router.push("/barber/profile");
                     setIsMenuOpen(false);
                   }}
                 >
                   <User className="h-4 w-4 mr-2" />
                   Profile
                 </Button>
-                <Button 
+                <Button
                   variant="ghost"
                   className="w-full justify-start"
                   onClick={() => {
@@ -514,7 +597,6 @@ export default function BarberDashboard() {
               </div>
             </div>
           )}
-          
         </div>
       </div>
 
@@ -532,17 +614,23 @@ export default function BarberDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Appointments</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Today's Appointments
+                  </CardTitle>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{appointments.length}</div>
+                  <div className="text-2xl font-bold">
+                    {appointments.length}
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Walk-in Queue</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Walk-in Queue
+                  </CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -553,11 +641,15 @@ export default function BarberDashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Status</CardTitle>
-                  <div className={`h-3 w-3 rounded-full ${isAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <div
+                    className={`h-3 w-3 rounded-full ${
+                      isAvailable ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  />
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm font-medium">
-                    {isAvailable ? 'Available' : 'Busy'}
+                    {isAvailable ? "Available" : "Busy"}
                   </div>
                 </CardContent>
               </Card>
@@ -567,41 +659,53 @@ export default function BarberDashboard() {
               <CardHeader>
                 <CardTitle>Today's Appointments</CardTitle>
                 <CardDescription>
-                  {format(new Date(), 'EEEE, MMMM d, yyyy')}
+                  {format(new Date(), "EEEE, MMMM d, yyyy")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {appointments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No appointments scheduled for today</p>
+                  <p className="text-gray-500 text-center py-8">
+                    No appointments scheduled for today
+                  </p>
                 ) : (
                   <div className="space-y-4">
                     {appointments.map((appointment) => (
-                      <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div
+                        key={appointment.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
                         <div className="flex-1">
                           <div className="flex items-center space-x-3">
                             <div className="flex items-center space-x-2">
                               <Clock className="h-4 w-4 text-gray-400" />
-                              <span className="font-medium">{appointment?.appointment_time}</span>
+                              <span className="font-medium">
+                                {appointment?.appointment_time}
+                              </span>
                             </div>
-                            <Badge 
+                            <Badge
                               variant={
-                                appointment?.status === 'completed' ? 'default' :
-                                appointment?.status === 'in_progress' ? 'secondary' :
-                                'outline'
+                                appointment?.status === "completed"
+                                  ? "default"
+                                  : appointment?.status === "in_progress"
+                                  ? "secondary"
+                                  : "outline"
                               }
                             >
                               {appointment?.status}
                             </Badge>
                           </div>
-                          <p className="font-medium mt-1">{appointment?.customer?.name}</p>
+                          <p className="font-medium mt-1">
+                            {appointment?.customer?.name}
+                          </p>
                           <p className="text-sm text-gray-600">
-                            {appointment?.service?.service_name} - ${appointment?.service?.price}
+                            {appointment?.service?.service_name} - $
+                            {appointment?.service?.price}
                           </p>
                         </div>
                         <div className="flex space-x-2">
-                          {appointment?.status === 'scheduled' && (
-                            <Button 
-                              size="sm" 
+                          {appointment?.status === "scheduled" && (
+                            <Button
+                              size="sm"
                               onClick={() => startAppointment(appointment.id)}
                               className="bg-emerald-600 hover:bg-emerald-700"
                             >
@@ -609,10 +713,12 @@ export default function BarberDashboard() {
                               Start
                             </Button>
                           )}
-                          {appointment?.status === 'in_progress' && (
-                            <Button 
-                              size="sm" 
-                              onClick={() => completeAppointment(appointment?.id)}
+                          {appointment?.status === "in_progress" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                completeAppointment(appointment?.id)
+                              }
                               variant="outline"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
@@ -632,38 +738,47 @@ export default function BarberDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Walk-in Queue</CardTitle>
-                <CardDescription>
-                  Manage your walk-in customers
-                </CardDescription>
+                <CardDescription>Manage your walk-in customers</CardDescription>
               </CardHeader>
               <CardContent>
                 {queue.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No customers in queue</p>
+                  <p className="text-gray-500 text-center py-8">
+                    No customers in queue
+                  </p>
                 ) : (
                   <div className="space-y-4">
                     {queue.map((item) => (
-                      <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg gap-3">
+                      <div
+                        key={item.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg gap-3"
+                      >
                         <div className="flex-1">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-1 sm:space-y-0">
-                            <Badge variant="outline" className='w-8 h-6'>#{item.position}</Badge>
-                            <span className="font-medium">{item.customer_name}</span>
-                            <span className="text-sm text-gray-600 break-all">{item.phone}</span>
+                            <Badge variant="outline" className="w-8 h-6">
+                              #{item.position}
+                            </Badge>
+                            <span className="font-medium">
+                              {item.customer_name}
+                            </span>
+                            <span className="text-sm text-gray-600 break-all">
+                              {item.phone}
+                            </span>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
-                            Joined: {format(new Date(item.join_time), 'h:mm a')}
+                            Joined: {format(new Date(item.join_time), "h:mm a")}
                           </p>
                         </div>
                         <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             onClick={() => startQueueItem(item.id)}
                             className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                           >
                             <Play className="h-4 w-4 mr-1" />
                             Start
                           </Button>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             onClick={() => completeQueueItem(item.id)}
                             variant="outline"
                             className="w-full sm:w-auto"
@@ -690,28 +805,40 @@ export default function BarberDashboard() {
               </CardHeader>
               <CardContent>
                 {completedAppointments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No completed appointments</p>
+                  <p className="text-gray-500 text-center py-8">
+                    No completed appointments
+                  </p>
                 ) : (
                   <div className="space-y-4">
                     {completedAppointments.map((appointment) => {
                       const reviewLink = generateReviewLink(appointment.id);
                       const isCopied = copiedLink === reviewLink;
-                      
+
                       return (
-                        <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div
+                          key={appointment.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
                           <div className="flex-1">
                             <div className="flex items-center space-x-3">
                               <div className="flex items-center space-x-2">
                                 <Clock className="h-4 w-4 text-gray-400" />
                                 <span className="font-medium">
-                                  {format(new Date(appointment.appointment_date), 'MMM d')} at {appointment.appointment_time}
+                                  {format(
+                                    new Date(appointment.appointment_date),
+                                    "MMM d"
+                                  )}{" "}
+                                  at {appointment.appointment_time}
                                 </span>
                               </div>
                               <Badge variant="default">Completed</Badge>
                             </div>
-                            <p className="font-medium mt-1">{appointment.customer?.name}</p>
+                            <p className="font-medium mt-1">
+                              {appointment.customer?.name}
+                            </p>
                             <p className="text-sm text-gray-600">
-                              {appointment.service?.service_name} - ${appointment.service?.price}
+                              {appointment.service?.service_name} - $
+                              {appointment.service?.price}
                             </p>
                           </div>
                           <div className="flex space-x-2">
@@ -719,7 +846,9 @@ export default function BarberDashboard() {
                               size="sm"
                               variant="outline"
                               onClick={() => copyToClipboard(reviewLink)}
-                              className={isCopied ? "bg-green-50 border-green-200" : ""}
+                              className={
+                                isCopied ? "bg-green-50 border-green-200" : ""
+                              }
                             >
                               {isCopied ? (
                                 <>
@@ -735,7 +864,7 @@ export default function BarberDashboard() {
                             </Button>
                             <Button
                               size="sm"
-                              onClick={() => window.open(reviewLink, '_blank')}
+                              onClick={() => window.open(reviewLink, "_blank")}
                             >
                               <Share2 className="h-4 w-4 mr-1" />
                               Open
@@ -795,7 +924,7 @@ export default function BarberDashboard() {
           </TabsContent> */}
 
           <TabsContent value="settings" className="space-y-6">
-          <Card>
+            <Card>
               <CardHeader>
                 <CardTitle>QR Code for Walk-ins</CardTitle>
                 <CardDescription>
@@ -805,11 +934,17 @@ export default function BarberDashboard() {
               <CardContent className="text-center">
                 <div className="bg-white p-8 rounded-lg inline-block border-2 border-dashed border-gray-300">
                   {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt="Queue QR Code" className="h-32 w-32 mx-auto mb-4" />
+                    <img
+                      src={qrCodeUrl}
+                      alt="Queue QR Code"
+                      className="h-32 w-32 mx-auto mb-4"
+                    />
                   ) : (
                     <QrCode className="h-32 w-32 text-gray-400 mx-auto mb-4" />
                   )}
-                  <p className="text-sm text-gray-600 mb-4">Scan to join the queue</p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Scan to join the queue
+                  </p>
                   <p className="text-xs text-gray-500 max-w-xs">
                     {getQueueUrl()}
                   </p>
@@ -822,9 +957,9 @@ export default function BarberDashboard() {
                     // variant="outline"
                     onClick={() => {
                       if (!qrCodeUrl) return;
-                      const link = document.createElement('a');
+                      const link = document.createElement("a");
                       link.href = qrCodeUrl;
-                      link.download = 'queue-qr-code.png';
+                      link.download = "queue-qr-code.png";
                       document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);
