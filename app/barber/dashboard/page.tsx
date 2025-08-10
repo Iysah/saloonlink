@@ -1,8 +1,12 @@
 "use client";
 
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -37,6 +41,15 @@ import { format } from "date-fns";
 import QRCode from "qrcode";
 import { TProfile } from "@/types/profile.type";
 
+const supabase = createClient();
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Interface for appointment data structure
+ */
 interface Appointment {
   id: string;
   customer_id: string;
@@ -56,6 +69,9 @@ interface Appointment {
   };
 }
 
+/**
+ * Interface for queue item data structure
+ */
 interface QueueItem {
   id: string;
   customer_name: string;
@@ -64,35 +80,76 @@ interface QueueItem {
   join_time: string;
   status: string;
   estimated_wait_minutes: number;
+  barber_id: string;
 }
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Barber Dashboard Component
+ *
+ * This is the main dashboard for barbers to manage their appointments,
+ * walk-in queue, and business settings. It provides functionality for:
+ * - Viewing and managing today's appointments
+ * - Managing walk-in queue
+ * - Viewing completed appointments and generating review links
+ * - Managing availability settings
+ * - QR code generation for walk-in customers
+ */
 export default function BarberDashboard() {
+  // ============================================================================
+  // STATE MANAGEMENT
+  // ============================================================================
+
+  // User authentication state
   const [user, setUser] = useState<any>(null);
+
+  // Business profile data
   const [barberProfile, setBarberProfile] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<TProfile | null>(null);
+
+  // Appointment and queue data
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [completedAppointments, setCompletedAppointments] = useState<
     Appointment[]
   >([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+
+  // Business settings
   const [isAvailable, setIsAvailable] = useState(true);
   const [walkInEnabled, setWalkInEnabled] = useState(true);
+
+  // UI state
   const [loading, setLoading] = useState(true);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  // Refs and router
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
 
+  // ============================================================================
+  // EFFECTS
+  // ============================================================================
+
+  /**
+   * Main initialization effect
+   * Fetches all necessary data when user is authenticated
+   */
   useEffect(() => {
     let queueSubscription: any;
 
     const initializeData = async () => {
+      // First check if user is authenticated
       await checkUser();
 
       if (user) {
         setLoading(false);
 
+        // Fetch all dashboard data in parallel for better performance
         await Promise.all([
           await fetchBarberData(user.id),
           await fetchAppointments(user.id),
@@ -104,32 +161,86 @@ export default function BarberDashboard() {
           .catch((error) => {
             console.log(error);
           });
-
-        // // Set up real-time subscriptions
-        // console.log('Setting up queue subscription for user:', user.id);
-        // queueSubscription = supabase
-        //   .channel(`queue-changes-${user.id}`)
-        //   .on('postgres_changes',
-        //     { event: '*', schema: 'public', table: 'queue' },
-        //     () => {
-        //       console.log('Queue change detected, fetching updated queue...');
-        //       fetchQueue(user.id);
-        //     }
-        //   )
-        //   .subscribe();
       }
     };
 
     initializeData();
-
-    // return () => {
-    //   if (queueSubscription) {
-    //     console.log('Cleaning up queue subscription...');
-    //     supabase.removeChannel(queueSubscription);
-    //   }
-    // };
   }, [user?.id]); // Only re-run when user.id changes
 
+  //? Live Queue
+
+  useEffect(() => {
+    if (!user) return;
+    //? define the channel
+
+    const channel = supabase.channel(`live-channel`);
+
+    console.log(channel);
+
+    //? Listen for UPDATE events
+    channel.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "queue",
+        filter: `barber_id=eq.${user?.id}`,
+      },
+      (payload) => {
+        //  console.log("payload from live UPDATE", payload);
+        const updated = payload.new as QueueItem;
+        if (Array.isArray(queue)) {
+          const updatedQueue = queue.map((item) => {
+            if (item.id === updated.id) {
+              return { ...updated };
+            }
+            return item;
+          });
+          
+          setQueue(
+            updatedQueue
+              .filter((v) => v.status !== "completed")
+              .sort((a, b) => a.position - b.position)
+          );
+        }
+      }
+    );
+
+    //? Listen for INSERT events
+    channel.on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "queue",
+        filter: `barber_id=eq.${user?.id}`,
+      },
+      (payload) => {
+        //  console.log("payload from live INSERT", payload);
+        if (Array.isArray(queue)) {
+          setQueue(
+            [...queue, payload.new as QueueItem]
+              .filter((v) => v.status !== "completed")
+              .sort((a, b) => a.position - b.position)
+          );
+        }
+      }
+    );
+
+    //? Subscribe to the channel
+    channel.subscribe((status) => {
+      console.log("Subscription status:", status);
+    });
+
+    return () => {
+      //? Cleanup the channel on unmount
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase, queue]);
+
+  /**
+   * Generate QR code when user data is available
+   */
   useEffect(() => {
     if (user) {
       const url = getQueueUrl();
@@ -141,6 +252,38 @@ export default function BarberDashboard() {
     }
   }, [user]);
 
+  // ============================================================================
+  // COMPUTED VALUES
+  // ============================================================================
+
+  /**
+   * Extract subscription information from user profile
+   */
+
+  /**
+   * Extract subscription information from user profile
+   */
+  const userSubscription = useMemo(() => {
+    if (userProfile) {
+      return userProfile?.subscription?.subscription;
+    } else {
+      return null;
+    }
+  }, [userProfile]);
+
+  //console.log(userProfile, userSubscription);
+
+  // ============================================================================
+  // AUTHENTICATION FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Check if user is authenticated and redirect to login if not
+   */
+
+  /**
+   * Check if user is authenticated and redirect to login if not
+   */
   const checkUser = async () => {
     const {
       data: { user },
@@ -152,6 +295,17 @@ export default function BarberDashboard() {
     setUser(user);
   };
 
+  // ============================================================================
+  // DATA FETCHING FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Fetch user profile data from profiles table
+   */
+
+  /**
+   * Fetch user profile data from profiles table
+   */
   const fetchUserData = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -168,16 +322,9 @@ export default function BarberDashboard() {
     }
   };
 
-  const userSubscription = useMemo(() => {
-    if (userProfile) {
-      return userProfile?.subscription?.subscription;
-    } else {
-      return null;
-    }
-  }, [userProfile]);
-
-  console.log(userProfile, userSubscription);
-
+  /**
+   * Fetch barber profile data including availability settings
+   */
   const fetchBarberData = async (userId: string) => {
     const { data, error } = await supabase
       .from("barber_profiles")
@@ -199,6 +346,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Fetch today's appointments for the barber
+   */
   const fetchAppointments = async (userId: string) => {
     const today = new Date().toISOString().split("T")[0];
 
@@ -220,6 +370,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Fetch recently completed appointments for review link generation
+   */
   const fetchCompletedAppointments = async (userId: string) => {
     const { data } = await supabase
       .from("appointments")
@@ -241,6 +394,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Fetch current walk-in queue for the barber
+   */
   const fetchQueue = async (userId: string) => {
     const { data } = await supabase
       .from("queue")
@@ -250,10 +406,17 @@ export default function BarberDashboard() {
       .order("position");
 
     if (data) {
-      setQueue(data);
+      setQueue(data?.filter((v) => v.status !== 'completed'));
     }
   };
 
+  // ============================================================================
+  // BUSINESS LOGIC FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Update barber's availability status
+   */
   const updateAvailability = async (available: boolean) => {
     if (!user) return;
 
@@ -267,6 +430,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Update walk-in acceptance setting
+   */
   const updateWalkInEnabled = async (enabled: boolean) => {
     if (!user) return;
 
@@ -280,7 +446,11 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Start an appointment and send WhatsApp notification
+   */
   const startAppointment = async (appointmentId: string) => {
+    // Update appointment status to in_progress
     const { error } = await supabase
       .from("appointments")
       .update({ status: "in_progress" })
@@ -288,6 +458,7 @@ export default function BarberDashboard() {
 
     if (!error) {
       fetchAppointments(user.id);
+
       // Send WhatsApp appointment started notification
       // Fetch appointment details for phone, salonName, service
       const { data: appt } = await supabase
@@ -297,7 +468,9 @@ export default function BarberDashboard() {
         )
         .eq("id", appointmentId)
         .single();
+
       if (appt) {
+        // Handle potential array responses from Supabase joins
         const customer = Array.isArray(appt.customer)
           ? appt.customer[0]
           : appt.customer;
@@ -307,9 +480,11 @@ export default function BarberDashboard() {
         const service = Array.isArray(appt.service)
           ? appt.service[0]
           : appt.service;
+
         const customerPhone = customer?.phone;
         const salonName = barber?.salon_name;
         const serviceName = service?.service_name;
+
         if (customerPhone && salonName && serviceName) {
           const { whatsappService } = await import("@/lib/termii");
           await whatsappService.sendAppointmentStarted(
@@ -322,7 +497,11 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Complete an appointment and send WhatsApp notification
+   */
   const completeAppointment = async (appointmentId: string) => {
+    // Update appointment status to completed
     const { error } = await supabase
       .from("appointments")
       .update({ status: "completed" })
@@ -331,6 +510,7 @@ export default function BarberDashboard() {
     if (!error) {
       fetchAppointments(user.id);
       fetchCompletedAppointments(user.id);
+
       // Send WhatsApp service completed notification
       // Fetch appointment details for phone, salonName, service
       const { data: appt } = await supabase
@@ -340,7 +520,9 @@ export default function BarberDashboard() {
         )
         .eq("id", appointmentId)
         .single();
+
       if (appt) {
+        // Handle potential array responses from Supabase joins
         const customer = Array.isArray(appt.customer)
           ? appt.customer[0]
           : appt.customer;
@@ -350,9 +532,11 @@ export default function BarberDashboard() {
         const service = Array.isArray(appt.service)
           ? appt.service[0]
           : appt.service;
+
         const customerPhone = customer?.phone;
         const salonName = barber?.salon_name;
         const serviceName = service?.service_name;
+
         if (customerPhone && salonName && serviceName) {
           const { whatsappService } = await import("@/lib/termii");
           await whatsappService.sendServiceCompleted(
@@ -365,6 +549,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Start serving a queue item
+   */
   const startQueueItem = async (queueId: string) => {
     const { error } = await supabase
       .from("queue")
@@ -376,6 +563,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Complete a queue item and notify next customer
+   */
   const completeQueueItem = async (queueId: string) => {
     const { error } = await supabase
       .from("queue")
@@ -384,8 +574,10 @@ export default function BarberDashboard() {
 
     if (!error) {
       fetchQueue(user.id);
+
       // Update positions for remaining queue items
       await updateQueuePositions();
+
       // Send WhatsApp alert to the next in line (position 1)
       const { data: waitingQueue } = await supabase
         .from("queue")
@@ -393,6 +585,7 @@ export default function BarberDashboard() {
         .eq("barber_id", user.id)
         .eq("status", "waiting")
         .order("position");
+
       if (waitingQueue && waitingQueue.length > 0) {
         const next = waitingQueue[0];
         if (next && next.phone && barberProfile?.salon_name) {
@@ -412,6 +605,9 @@ export default function BarberDashboard() {
     }
   };
 
+  /**
+   * Reorder queue positions after completing a customer
+   */
   const updateQueuePositions = async () => {
     if (!user) return;
 
@@ -423,6 +619,7 @@ export default function BarberDashboard() {
       .order("join_time");
 
     if (waitingQueue) {
+      // Update positions sequentially
       for (let i = 0; i < waitingQueue.length; i++) {
         await supabase
           .from("queue")
@@ -433,29 +630,50 @@ export default function BarberDashboard() {
     }
   };
 
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Handle user logout
+   */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/auth/login");
   };
 
+  /**
+   * Generate queue URL for QR code
+   */
   const getQueueUrl = () => {
     if (!user) return "";
     return `${window.location.origin}/barber/${user.id}/queue`;
   };
 
+  /**
+   * Generate review link for completed appointments
+   */
   const generateReviewLink = (appointmentId: string) => {
     return `${window.location.origin}/review/${appointmentId}`;
   };
 
+  /**
+   * Copy text to clipboard with visual feedback
+   */
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedLink(text);
+      // Clear copied state after 2 seconds
       setTimeout(() => setCopiedLink(null), 2000);
     } catch (err) {
       console.error("Failed to copy to clipboard:", err);
     }
   };
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
 
   if (loading) {
     return (
@@ -468,11 +686,17 @@ export default function BarberDashboard() {
     );
   }
 
+  // ============================================================================
+  // MAIN RENDER
+  // ============================================================================
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-rose-50">
+      {/* Header Section */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
+            {/* Logo and Business Info */}
             <div className="flex items-center space-x-3">
               <div className="bg-emerald-100 p-2 rounded-full">
                 <Scissors className="h-6 w-6 text-emerald-600" />
@@ -487,7 +711,7 @@ export default function BarberDashboard() {
               </div>
             </div>
 
-            {/* Desktop Menu */}
+            {/* Desktop Navigation Menu */}
             <div className="hidden md:flex items-center space-x-4">
               <Button
                 variant="outline"
@@ -496,6 +720,7 @@ export default function BarberDashboard() {
                 <Image className="h-4 w-4 mr-2" />
                 Services
               </Button>
+              {/* Show Reviews button only for premium users */}
               {userSubscription !== null &&
                 userSubscription?.plan !== "basic" && (
                   <Button
@@ -519,20 +744,6 @@ export default function BarberDashboard() {
               </Button>
             </div>
 
-            {/* <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                onClick={() => router.push('/barber/profile')}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Profile
-              </Button>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div> */}
-
             {/* Mobile Menu Button */}
             <div className="md:hidden">
               <Button
@@ -543,6 +754,7 @@ export default function BarberDashboard() {
               </Button>
             </div>
           </div>
+
           {/* Mobile Menu Dropdown */}
           {isMenuOpen && (
             <div className="md:hidden pb-4">
@@ -558,6 +770,7 @@ export default function BarberDashboard() {
                   <Image className="h-4 w-4 mr-2" />
                   Services
                 </Button>
+                {/* Show Reviews button only for premium users */}
                 {userSubscription !== null &&
                   userSubscription?.plan !== "basic" && (
                     <Button
@@ -600,17 +813,20 @@ export default function BarberDashboard() {
         </div>
       </div>
 
+      {/* Main Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs defaultValue="today" className="space-y-6">
+          {/* Tab Navigation */}
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="queue">Queue ({queue.length})</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
-            {/* <TabsTrigger value="qr-code">QR Code</TabsTrigger> */}
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
+          {/* Today's Appointments Tab */}
           <TabsContent value="today" className="space-y-6">
+            {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -655,6 +871,7 @@ export default function BarberDashboard() {
               </Card>
             </div>
 
+            {/* Appointments List */}
             <Card>
               <CardHeader>
                 <CardTitle>Today's Appointments</CardTitle>
@@ -703,6 +920,7 @@ export default function BarberDashboard() {
                           </p>
                         </div>
                         <div className="flex space-x-2">
+                          {/* Start appointment button - only show for scheduled appointments */}
                           {appointment?.status === "scheduled" && (
                             <Button
                               size="sm"
@@ -713,6 +931,7 @@ export default function BarberDashboard() {
                               Start
                             </Button>
                           )}
+                          {/* Complete appointment button - only show for in-progress appointments */}
                           {appointment?.status === "in_progress" && (
                             <Button
                               size="sm"
@@ -734,6 +953,7 @@ export default function BarberDashboard() {
             </Card>
           </TabsContent>
 
+          {/* Walk-in Queue Tab */}
           <TabsContent value="queue" className="space-y-6">
             <Card>
               <CardHeader>
@@ -768,9 +988,11 @@ export default function BarberDashboard() {
                             Joined: {format(new Date(item.join_time), "h:mm a")}
                           </p>
                         </div>
+                        {/* Queue item actions */}
                         <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
                           <Button
                             size="sm"
+                            disabled={item?.status === 'in_progress'}
                             onClick={() => startQueueItem(item.id)}
                             className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                           >
@@ -779,6 +1001,7 @@ export default function BarberDashboard() {
                           </Button>
                           <Button
                             size="sm"
+                            disabled={item?.status === 'waiting'}
                             onClick={() => completeQueueItem(item.id)}
                             variant="outline"
                             className="w-full sm:w-auto"
@@ -795,6 +1018,7 @@ export default function BarberDashboard() {
             </Card>
           </TabsContent>
 
+          {/* Completed Appointments Tab */}
           <TabsContent value="completed" className="space-y-6">
             <Card>
               <CardHeader>
@@ -842,6 +1066,7 @@ export default function BarberDashboard() {
                             </p>
                           </div>
                           <div className="flex space-x-2">
+                            {/* Copy review link button */}
                             <Button
                               size="sm"
                               variant="outline"
@@ -862,6 +1087,7 @@ export default function BarberDashboard() {
                                 </>
                               )}
                             </Button>
+                            {/* Open review link button */}
                             <Button
                               size="sm"
                               onClick={() => window.open(reviewLink, "_blank")}
@@ -879,51 +1105,9 @@ export default function BarberDashboard() {
             </Card>
           </TabsContent>
 
-          {/* <TabsContent value="qr-code" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>QR Code for Walk-ins</CardTitle>
-                <CardDescription>
-                  Customers can scan this to join your queue
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-center">
-                <div className="bg-white p-8 rounded-lg inline-block border-2 border-dashed border-gray-300">
-                  {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt="Queue QR Code" className="h-32 w-32 mx-auto mb-4" />
-                  ) : (
-                    <QrCode className="h-32 w-32 text-gray-400 mx-auto mb-4" />
-                  )}
-                  <p className="text-sm text-gray-600 mb-4">Scan to join the queue</p>
-                  <p className="text-xs text-gray-500 max-w-xs">
-                    {getQueueUrl()}
-                  </p>
-                </div>
-                <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-                  <Button onClick={() => window.open(getQueueUrl(), '_blank')}>
-                    Open Queue Page
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (!qrCodeUrl) return;
-                      const link = document.createElement('a');
-                      link.href = qrCodeUrl;
-                      link.download = 'queue-qr-code.png';
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    disabled={!qrCodeUrl}
-                  >
-                    Download QR Code
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent> */}
-
+          {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
+            {/* QR Code Section */}
             <Card>
               <CardHeader>
                 <CardTitle>QR Code for Walk-ins</CardTitle>
@@ -950,11 +1134,8 @@ export default function BarberDashboard() {
                   </p>
                 </div>
                 <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-                  {/* <Button variant="outline" onClick={() => window.open(getQueueUrl(), '_blank')}>
-                    Open Queue Page
-                  </Button> */}
+                  {/* Download QR Code button */}
                   <Button
-                    // variant="outline"
                     onClick={() => {
                       if (!qrCodeUrl) return;
                       const link = document.createElement("a");
@@ -971,6 +1152,8 @@ export default function BarberDashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Availability Settings Section */}
             <Card>
               <CardHeader>
                 <CardTitle>Availability Settings</CardTitle>
@@ -979,6 +1162,7 @@ export default function BarberDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Available for bookings toggle */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="availability">Available for bookings</Label>
@@ -993,6 +1177,7 @@ export default function BarberDashboard() {
                   />
                 </div>
 
+                {/* Accept walk-ins toggle */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="walkin">Accept walk-ins</Label>

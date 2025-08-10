@@ -1,6 +1,8 @@
 import cron from 'node-cron';
-import { supabase } from './supabase';
+import { createClient } from './supabase';
 import { whatsappService } from './termii';
+
+const supabase = createClient()
 
 // Helper to get current time in UTC and 10 minutes from now
 function getTimeWindow() {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import Image from "next/image";
+
+const supabase =  createClient()
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({

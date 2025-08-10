@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +30,7 @@ import Image from "next/image"
 import Link from "next/link"
 import Footer from '@/components/ui/footer';
 import Navbar from '@/components/ui/navbar';
+const supabase =  createClient()
 
 export default function HomePage() {
   const router = useRouter();
