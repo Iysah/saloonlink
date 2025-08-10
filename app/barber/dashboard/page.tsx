@@ -172,6 +172,13 @@ export default function BarberDashboard() {
   useEffect(() => {
     if (!user) return;
     //? define the channel
+    //? if not eligible to live return
+    // if (
+    //   !userProfile ||
+    //   !userProfile?.subscription?.subscription?.features?.appointments
+    //     ?.real_time_updates
+    // )
+    //   return;
 
     const channel = supabase.channel(`live-channel`);
 
@@ -196,7 +203,7 @@ export default function BarberDashboard() {
             }
             return item;
           });
-          
+
           setQueue(
             updatedQueue
               .filter((v) => v.status !== "completed")
@@ -236,7 +243,7 @@ export default function BarberDashboard() {
       //? Cleanup the channel on unmount
       supabase.removeChannel(channel);
     };
-  }, [user, supabase, queue]);
+  }, [user, supabase, queue, userProfile]);
 
   /**
    * Generate QR code when user data is available
@@ -406,7 +413,7 @@ export default function BarberDashboard() {
       .order("position");
 
     if (data) {
-      setQueue(data?.filter((v) => v.status !== 'completed'));
+      setQueue(data?.filter((v) => v.status !== "completed"));
     }
   };
 
@@ -992,7 +999,7 @@ export default function BarberDashboard() {
                         <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
                           <Button
                             size="sm"
-                            disabled={item?.status === 'in_progress'}
+                            disabled={item?.status === "in_progress"}
                             onClick={() => startQueueItem(item.id)}
                             className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                           >
@@ -1001,7 +1008,7 @@ export default function BarberDashboard() {
                           </Button>
                           <Button
                             size="sm"
-                            disabled={item?.status === 'waiting'}
+                            disabled={item?.status === "waiting"}
                             onClick={() => completeQueueItem(item.id)}
                             variant="outline"
                             className="w-full sm:w-auto"

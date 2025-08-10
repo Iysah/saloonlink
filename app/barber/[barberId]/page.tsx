@@ -1,27 +1,34 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Scissors, 
-  MapPin, 
-  Clock, 
-  Users, 
-  Calendar, 
-  Star, 
-  Phone, 
+import { useState, useEffect, useMemo } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Scissors,
+  MapPin,
+  Clock,
+  Users,
+  Calendar,
+  Star,
+  Phone,
   Loader2,
   Image as ImageIcon,
-  ArrowLeft
-} from 'lucide-react';
+  ArrowLeft,
+} from "lucide-react";
+import { TProfile } from "@/types/profile.type";
 
-const supabase = createClient()
+const supabase = createClient();
 
 interface Service {
   id: string;
@@ -57,41 +64,82 @@ export default function BarberDetailsPage() {
 
   const [barber, setBarber] = useState<BarberInfo | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [appointmentCount, setAppointmentsCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [barberProfile, setBarberProfile] = useState<TProfile | null>(null);
 
   useEffect(() => {
-    if (barberId) {
-      fetchBarberDetails();
-    }
+    (async () => {
+      if (barberId) {
+        setLoading(true);
+        await Promise.all([fetchBarberDetails(), fetchBarberProfile()]);
+
+        setLoading(false);
+      }
+    })();
   }, [barberId]);
+
+  const fetchBarberProfile = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`*`)
+      .eq("user_id", barberId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching barber info:", error);
+      return;
+    }
+
+    if (data) {
+      setBarberProfile(data as any);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    const { data, error, count } = await supabase
+      .from("appointments")
+      .select(`*`)
+      .eq("barber_id", barberId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching barber info:", error);
+      return;
+    }
+
+    if (count) {
+      setAppointmentsCount(count);
+    }
+  };
 
   const fetchBarberDetails = async () => {
     try {
       // Fetch barber profile - handle potential multiple rows gracefully
       const { data: barberData, error: barberError } = await supabase
-        .from('barber_profiles')
-        .select('*, profile:profiles(name, profile_picture)')
-        .eq('user_id', barberId)
-        .order('created_at', { ascending: false })
+        .from("barber_profiles")
+        .select("*, profile:profiles(name, profile_picture)")
+        .eq("user_id", barberId)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (barberError) throw barberError;
-      
+
       if (!barberData) {
-        setError('Barber not found');
+        setError("Barber not found");
         return;
       }
-      
+
       setBarber(barberData as any);
 
       // Fetch services with images
       const { data: servicesData, error: servicesError } = await supabase
-        .from('services')
-        .select('id, service_name, price, duration_minutes')
-        .eq('barber_id', barberId)
-        .order('created_at');
+        .from("services")
+        .select("id, service_name, price, duration_minutes")
+        .eq("barber_id", barberId)
+        .order("created_at");
 
       if (servicesError) throw servicesError;
 
@@ -99,14 +147,14 @@ export default function BarberDetailsPage() {
       const servicesWithImages = await Promise.all(
         (servicesData || []).map(async (service) => {
           const { data: images } = await supabase
-            .from('service_images')
-            .select('*')
-            .eq('service_id', service.id)
-            .order('image_order');
-          
+            .from("service_images")
+            .select("*")
+            .eq("service_id", service.id)
+            .order("image_order");
+
           return {
             ...service,
-            images: images || []
+            images: images || [],
           };
         })
       );
@@ -118,6 +166,12 @@ export default function BarberDetailsPage() {
       setLoading(false);
     }
   };
+
+  const barberSubscription = useMemo(() => {
+    if (barberProfile) {
+      return barberProfile?.subscription?.subscription;
+    } else return null;
+  }, [barberProfile]);
 
   if (loading) {
     return (
@@ -136,9 +190,13 @@ export default function BarberDetailsPage() {
         <Card className="max-w-md">
           <CardContent className="text-center py-12">
             <Scissors className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Barber not found</h3>
-            <p className="text-gray-500 mb-4">The barber you're looking for doesn't exist or is not available.</p>
-            <Button onClick={() => router.push('/customer/dashboard')}>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Barber not found
+            </h3>
+            <p className="text-gray-500 mb-4">
+              The barber you're looking for doesn't exist or is not available.
+            </p>
+            <Button onClick={() => router.push("/customer/dashboard")}>
               Go Back
             </Button>
           </CardContent>
@@ -166,21 +224,31 @@ export default function BarberDetailsPage() {
               <Avatar className="h-24 w-24">
                 <AvatarImage src={barber.profile?.profile_picture} />
                 <AvatarFallback className="text-2xl">
-                  {barber.profile?.name?.charAt(0) || 'B'}
+                  {barber.profile?.name?.charAt(0) || "B"}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{barber.salon_name}</h1>
-                <p className="text-xl text-gray-600 mb-2">{barber.profile?.name}</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {barber.salon_name}
+                </h1>
+                <p className="text-xl text-gray-600 mb-2">
+                  {barber.profile?.name}
+                </p>
                 <div className="flex items-center text-gray-500 mb-3">
                   <MapPin className="h-4 w-4 mr-1" />
                   <span>{barber.location}</span>
                 </div>
-                
+
                 <div className="flex items-center space-x-4">
-                  <Badge className={barber.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                    {barber.is_available ? 'Available' : 'Busy'}
+                  <Badge
+                    className={
+                      barber.is_available
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }
+                  >
+                    {barber.is_available ? "Available" : "Busy"}
                   </Badge>
                   {barber.walk_in_enabled && (
                     <Badge variant="outline">Walk-ins Welcome</Badge>
@@ -189,15 +257,18 @@ export default function BarberDetailsPage() {
               </div>
 
               <div className="flex flex-col space-y-2">
-                <Button 
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => router.push(`/barber/${barberId}/book`)}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Book Appointment
-                </Button>
+                {/**barberSubscription && barberSubscription?.plan === 'basic' && appointmentCount < 5 && */}
+                {
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => router.push(`/barber/${barberId}/book`)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Book Appointment
+                  </Button>
+                }
                 {barber.walk_in_enabled && (
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={() => router.push(`/barber/${barberId}/queue`)}
                   >
@@ -234,7 +305,9 @@ export default function BarberDetailsPage() {
             {services.length === 0 ? (
               <div className="text-center py-8">
                 <Scissors className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No services available at the moment.</p>
+                <p className="text-gray-500">
+                  No services available at the moment.
+                </p>
               </div>
             ) : (
               <div className="grid gap-6">
@@ -246,7 +319,10 @@ export default function BarberDetailsPage() {
                           {service.service_name}
                         </h3>
                         <div className="flex items-center space-x-4">
-                          <Badge variant="secondary" className="text-lg px-3 py-1">
+                          <Badge
+                            variant="secondary"
+                            className="text-lg px-3 py-1"
+                          >
                             ₦{service.price}
                           </Badge>
                           <div className="flex items-center text-gray-500">
@@ -255,8 +331,8 @@ export default function BarberDetailsPage() {
                           </div>
                         </div>
                       </div>
-                      
-                      <Button 
+
+                      <Button
                         className="mt-4 md:mt-0 bg-emerald-600 hover:bg-emerald-700"
                         onClick={() => router.push(`/barber/${barberId}/book`)}
                       >
@@ -274,10 +350,15 @@ export default function BarberDetailsPage() {
                         </h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           {service.images.map((image, index) => (
-                            <div key={image.id} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                            <div
+                              key={image.id}
+                              className="aspect-square bg-gray-100 rounded-lg overflow-hidden"
+                            >
                               <img
                                 src={image.image_url}
-                                alt={`${service.service_name} example ${index + 1}`}
+                                alt={`${service.service_name} example ${
+                                  index + 1
+                                }`}
                                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
                               />
                             </div>
@@ -303,7 +384,7 @@ export default function BarberDetailsPage() {
                 Choose from our services and book a time that works for you
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button 
+                <Button
                   size="lg"
                   className="bg-emerald-600 hover:bg-emerald-700"
                   onClick={() => router.push(`/barber/${barberId}/book`)}
@@ -312,7 +393,7 @@ export default function BarberDetailsPage() {
                   Book Appointment
                 </Button>
                 {barber.walk_in_enabled && (
-                  <Button 
+                  <Button
                     size="lg"
                     variant="outline"
                     onClick={() => router.push(`/barber/${barberId}/queue`)}
@@ -328,4 +409,4 @@ export default function BarberDetailsPage() {
       </div>
     </div>
   );
-} 
+}

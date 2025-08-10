@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import React from "react";
+import { TProfile } from "@/types/profile.type";
 
 interface QueueItem {
   id: string;
@@ -82,6 +83,7 @@ interface QueueClientProps {
 
 const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   const [barber, setBarber] = useState<BarberInfo | null>(null);
+  const [barberProfile, setBarberProfile] = useState<TProfile | null>(null)
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -115,9 +117,18 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     if (!barberId) return;
     //? define the channel
 
+        //? if not eligible to live return
+        // if (
+        //   !barberProfile ||
+        //   !barberProfile?.subscription?.subscription?.features?.appointments
+        //     ?.real_time_updates
+        // )
+        //   return;
+    
+
     const channel = supabase.channel(`live-channel`);
 
-    console.log(channel);
+   // console.log(channel);
 
     //? Listen for UPDATE events
     channel.on(
@@ -178,7 +189,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
       //? Cleanup the channel on unmount
       supabase.removeChannel(channel);
     };
-  }, [barberId, supabase, queue]);
+  }, [barberId, supabase, queue, barberProfile]);
 
   const checkAuthentication = async () => {
     const {
@@ -204,29 +215,15 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     setLoading(false);
   };
 
-  // useEffect(() => {
-  //   if (isAuthenticated && barberId) {
-  //     fetchBarberInfo();
-  //     fetchQueue();
-  //     const queueSubscription = supabase
-  //       .channel(`queue-changes-barber-${barberId}`)
-  //       .on(
-  //         "postgres_changes",
-  //         {
-  //           event: "*",
-  //           schema: "public",
-  //           table: "queue",
-  //           filter: `barber_id=eq.${barberId}`,
-  //         },
-  //         () => fetchQueue()
-  //       )
-  //       .subscribe();
-  //     return () => {
-  //       supabase.removeChannel(queueSubscription);
-  //     };
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [barberId, isAuthenticated]);
+  useEffect(() => {
+    if (isAuthenticated && barberId) {
+      fetchBarberInfo();
+      fetchQueue();
+      fetchBarberProfile();
+      
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barberId, isAuthenticated]);
 
   const fetchBarberInfo = async () => {
     const { data, error } = await supabase
@@ -244,6 +241,22 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
 
     if (data) {
       setBarber(data as any);
+    }
+  };
+  const fetchBarberProfile = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`*`)
+      .eq("user_id", barberId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching barber info:", error);
+      return;
+    }
+
+    if (data) {
+      setBarberProfile(data as any);
     }
   };
 
