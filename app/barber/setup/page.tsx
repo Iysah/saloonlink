@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,8 @@ interface Service {
   duration_minutes: number;
   images?: string[];
 }
+
+const supabase = createClient()
 
 export default function BarberSetupPage() {
   const [profile, setProfile] = useState({

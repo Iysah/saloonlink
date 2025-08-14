@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Upload, Camera, Loader2, X } from 'lucide-react';
@@ -13,6 +13,9 @@ interface ProfilePictureUploadProps {
   onImageUploaded: (imageUrl: string) => void;
   className?: string;
 }
+
+const supabase = createClient()
+
 
 export function ProfilePictureUpload({ 
   userId, 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,8 @@ interface ServiceImageGalleryProps {
   serviceId: string;
   maxImages?: number;
 }
+
+const supabase = createClient()
 
 export function ServiceImageGallery({ serviceId, maxImages = 3 }: ServiceImageGalleryProps) {
   const [images, setImages] = useState<ServiceImage[]>([]);

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
+import {  Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ImageUploadProps {
@@ -14,6 +14,7 @@ interface ImageUploadProps {
   className?: string;
 }
 
+const supabase = createClient()
 export function ImageUpload({ 
   serviceId, 
   onImagesUploaded, 

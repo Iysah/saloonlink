@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { Tier, TierInfo, UsageStats, getTierLimits } from '@/lib/tierLimits';
+
+
+const supabase = createClient()
 
 export function useTierLimits(userId?: string) {
   const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);

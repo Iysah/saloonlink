@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { ReviewForm } from '@/components/ui/review-form';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,9 @@ interface Appointment {
     service_name: string;
   };
 }
+
+const supabase = createClient()
+
 
 export default function ReviewPage() {
   const params = useParams();
