@@ -27,6 +27,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { TProfile } from "@/types/profile.type";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 const supabase = createClient();
 
@@ -67,6 +68,7 @@ export default function BarberDetailsPage() {
   const [appointmentCount, setAppointmentsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isOpenSubModal, setOpenSubModal] = useState(false);
   const [barberProfile, setBarberProfile] = useState<TProfile | null>(null);
 
   useEffect(() => {
@@ -257,11 +259,27 @@ export default function BarberDetailsPage() {
               </div>
 
               <div className="flex flex-col space-y-2">
-                {/**barberSubscription && barberSubscription?.plan === 'basic' && appointmentCount < 5 && */}
+                {/**&& */}
                 {
                   <Button
                     className="bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => router.push(`/barber/${barberId}/book`)}
+                    onClick={() => {
+                      if (
+                        barberSubscription &&
+                        barberSubscription?.plan === "basic" &&
+                        appointmentCount === 5
+                      ) {
+                        return setOpenSubModal(true);
+                      }
+                      if (
+                        barberSubscription &&
+                        barberSubscription?.plan === "starter" &&
+                        appointmentCount === 10
+                      ) {
+                        return setOpenSubModal(true);
+                      }
+                      router.push(`/barber/${barberId}/book`);
+                    }}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
                     Book Appointment
@@ -407,6 +425,11 @@ export default function BarberDetailsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <UpgradeModal
+        onClose={() => setOpenSubModal(false)}
+        isOpen={isOpenSubModal}
+      />
     </div>
   );
 }

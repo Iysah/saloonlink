@@ -40,6 +40,7 @@ import {
 import { format } from "date-fns";
 import QRCode from "qrcode";
 import { TProfile } from "@/types/profile.type";
+import { Analytics } from "@/components/analytics/Analytics";
 
 const supabase = createClient();
 
@@ -83,6 +84,19 @@ interface QueueItem {
   barber_id: string;
 }
 
+export interface ServiceItem {
+  idx: number;
+  id: string;
+  barber_id: string;
+  service_name: string;
+  price: string;
+  duration_minutes: number;
+  service_image: string | null;
+  is_predefined: boolean;
+  created_at: string;
+  deleted_at: string | null;
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -116,7 +130,7 @@ export default function BarberDashboard() {
     Appointment[]
   >([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
-
+  const [services, setServices] = useState<ServiceItem[]>([]);
   // Business settings
   const [isAvailable, setIsAvailable] = useState(true);
   const [walkInEnabled, setWalkInEnabled] = useState(true);
@@ -165,7 +179,7 @@ export default function BarberDashboard() {
     };
 
     initializeData();
-  }, [user?.id]); // Only re-run when user.id changes
+  }, [user?.id]);
 
   //? Live Queue
 
@@ -327,6 +341,23 @@ export default function BarberDashboard() {
     } catch (error) {
       console.log(error);
     }
+  };
+
+  /**
+   * 
+   Fetch services
+   */
+
+  const fetchServices = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from("services")
+        .select("*")
+        .eq("barber_id", user?.id);
+      if (data && data?.length > 0) {
+        setServices(data);
+      }
+    } catch (error) {}
   };
 
   /**
@@ -834,7 +865,7 @@ export default function BarberDashboard() {
           {/* Today's Appointments Tab */}
           <TabsContent value="today" className="space-y-6">
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
@@ -876,7 +907,14 @@ export default function BarberDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            </div> */}
+
+            <Analytics
+              rawServices={services}
+              rawQueue={queue}
+              rawAppointments={appointments}
+              userProfile={userProfile}
+            />
 
             {/* Appointments List */}
             <Card>

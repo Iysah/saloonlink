@@ -11,7 +11,7 @@ export interface TProfile {
 
  subscription : {
   subscription: {
-    plan: "basic" | "premium" | "enterprise";
+    plan: "basic" | "starter" | "pro" | "enterprise";
     features: {
       stylists: {
         allowed: number;
