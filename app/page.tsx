@@ -23,8 +23,7 @@ import {
   BarChart3,
   MessageSquare,
   CreditCard,
-  Settings,
-  TrendingUp
+  
 } from 'lucide-react';
 import Image from "next/image"
 import Link from "next/link"
@@ -50,13 +49,13 @@ export default function HomePage() {
         .eq('id', user.id)
         .single();
 
-      if (profile) {
-        if (profile.role === 'barber') {
-          router.push('/barber/dashboard');
-        } else {
-          router.push('/customer/dashboard');
-        }
-      }
+      // if (profile) {
+      //   if (profile.role === 'barber') {
+      //     router.push('/barber/dashboard');
+      //   } else {
+      //     router.push('/customer/dashboard');
+      //   }
+      // }
     }
   };
 

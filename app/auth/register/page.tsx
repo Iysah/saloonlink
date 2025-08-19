@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,13 @@ import Image from "next/image";
 
 const supabase =  createClient()
 
-export default function RegisterPage() {
+
+
+
+function RegisterPageComponent() {
+  const params = useSearchParams()
+  const plan = params.get("plan")
+  const trial = params.get("trial")
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -386,4 +392,13 @@ export default function RegisterPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function RegisterPage() {
+
+  return 
+  <Suspense>
+  <RegisterPageComponent/>
+  </Suspense>
 }

@@ -190,3 +190,126 @@ export const TIER_PRICING = {
   pro: { price: 29.99, currency: 'USD', period: 'month' },
   enterprise: { price: null, currency: 'USD', period: 'month' } // Contact for pricing
 }; 
+
+export const plans = [
+   {
+    plan: "basic",
+    features: {
+      stylists: {
+        allowed: 1,
+        unlimited: false,
+      },
+      appointments: {
+        daily_limit: 5,
+        unlimited: false,
+        real_time_updates: false,
+        priority_queue: false,
+        ai_optimization: false,
+      },
+      hairstyles: {
+        predefined_limit: 5,
+        custom_uploads: false,
+        full_library: false,
+      },
+      profile: {
+        basic_listing: true,
+        reviews_visible: false,
+      },
+      analytics: {
+        basic: false,
+        intermediate: false,
+        advanced: false,
+      },
+      communication: {
+        in_app_messaging: false,
+        priority_support: false,
+      },
+      marketing: {
+        push_notifications: false,
+      },
+    },
+    active: true,
+    start_date: null,
+    billing_cycle: null,
+  },
+  {
+    plan: "starter",
+    features: {
+      stylists: {
+        allowed: 2,
+        unlimited: false,
+      },
+      appointments: {
+        daily_limit: 10,
+        unlimited: false,
+        real_time_updates: true,
+        priority_queue: false,
+        ai_optimization: false,
+      },
+      hairstyles: {
+        predefined_limit: 10,
+        custom_uploads: false,
+        full_library: false,
+      },
+      profile: {
+        basic_listing: true,
+        reviews_visible: false,
+      },
+      analytics: {
+        basic: false,
+        intermediate: false,
+        advanced: false,
+      },
+      communication: {
+        in_app_messaging: false,
+        priority_support: false,
+      },
+      marketing: {
+        push_notifications: false,
+      },
+    },
+    active: true,
+    start_date: new Date().toISOString(),
+    billing_cycle: null,
+  },
+  {
+    plan: "pro",
+    features: {
+      stylists: {
+        allowed: 2,
+        unlimited: false,
+      },
+      appointments: {
+        daily_limit: 10,
+        unlimited: false,
+        real_time_updates: true,
+        priority_queue: false,
+        ai_optimization: false,
+      },
+      hairstyles: {
+        predefined_limit: 10,
+        custom_uploads: false,
+        full_library: false,
+      },
+      profile: {
+        basic_listing: true,
+        reviews_visible: false,
+      },
+      analytics: {
+        basic: false,
+        intermediate: false,
+        advanced: false,
+      },
+      communication: {
+        in_app_messaging: false,
+        priority_support: false,
+      },
+      marketing: {
+        push_notifications: false,
+      },
+    },
+    active: true,
+    start_date: new Date().toISOString(),
+    billing_cycle: null,
+  },
+]
