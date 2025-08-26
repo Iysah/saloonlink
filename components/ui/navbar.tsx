@@ -127,7 +127,7 @@ export default function Navbar() {
                 </Link>
                 <Link href="/auth/register?role=barber">
                   <Button className="bg-emerald-600 hover:bg-emerald-600/90 text-primary-foreground font-medium">
-                    Get Started Free
+                    Get Started for Free
                   </Button>
                 </Link>
               </>

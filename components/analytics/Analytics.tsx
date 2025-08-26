@@ -1,115 +1,132 @@
 "use client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { 
-  BarChart, 
-  LineChart, 
-  PieChart, 
-  Bar, 
-  Line, 
-  Pie, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
+import {
+  BarChart,
+  LineChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
   ResponsiveContainer,
-  Cell
 } from "recharts";
-import { Calendar, Users, Clock, DollarSign, PieChart as PieChartIcon } from "lucide-react";
-import { format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns";
+import {
+  Calendar,
+  Users,
+  Clock,
+  DollarSign,
+} from "lucide-react";
+import {
+  format,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameDay,
+} from "date-fns";
+import { TProfile } from "@/types/profile.type";
+import { useMemo } from "react";
 
 const PRIMARY_COLOR = "#059669";
 const SECONDARY_COLOR = "#34d399";
 
 interface AnalyticsProps {
-  userProfile: any;
+  userProfile: TProfile | null;
   rawAppointments: any[];
   rawQueue: any[];
   rawServices: any[];
 }
 
-export const Analytics = ({ 
-  userProfile, 
-  rawAppointments, 
-  rawQueue, 
-  rawServices 
+export const Analytics = ({
+  userProfile,
+  rawAppointments,
+  rawQueue,
+  rawServices,
 }: AnalyticsProps) => {
-  const plan = userProfile?.subscription?.subscription?.plan || "basic";
+  const subs = useMemo(() => {
+    return userProfile?.subscription?.subscription;
+  }, [userProfile]);
   const now = new Date();
   const weekStart = startOfWeek(now);
   const weekEnd = endOfWeek(now);
 
   // ? appointments data
-  const todayAppointments = rawAppointments.filter(appt => 
+  const todayAppointments = rawAppointments.filter((appt) =>
     isSameDay(parseISO(appt.appointment_date), now)
   );
-  const weekAppointments = rawAppointments.filter(appt => 
-    parseISO(appt.appointment_date) >= weekStart && 
-    parseISO(appt.appointment_date) <= weekEnd
+  const weekAppointments = rawAppointments.filter(
+    (appt) =>
+      parseISO(appt.appointment_date) >= weekStart &&
+      parseISO(appt.appointment_date) <= weekEnd
   );
 
   // ? revenue
   const todayRevenue = todayAppointments.reduce((sum, appt) => {
-    const service = rawServices.find(s => s.id === appt.service_id);
+    const service = rawServices.find((s) => s.id === appt.service_id);
     return sum + (service ? parseFloat(service.price) : 0);
   }, 0);
 
   const weekRevenue = weekAppointments.reduce((sum, appt) => {
-    const service = rawServices.find(s => s.id === appt.service_id);
+    const service = rawServices.find((s) => s.id === appt.service_id);
     return sum + (service ? parseFloat(service.price) : 0);
   }, 0);
 
   // ? queue/walk-ins
-  const todayQueue = rawQueue.filter(item => 
+  const todayQueue = rawQueue.filter((item) =>
     isSameDay(parseISO(item.join_time), now)
   );
-  const weekQueue = rawQueue.filter(item => 
-    parseISO(item.join_time) >= weekStart && 
-    parseISO(item.join_time) <= weekEnd
+  const weekQueue = rawQueue.filter(
+    (item) =>
+      parseISO(item.join_time) >= weekStart &&
+      parseISO(item.join_time) <= weekEnd
   );
 
   //? chart data
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-  
-  const appointmentsByDay = weekDays.map(day => {
-    const dayStr = format(day, 'EEE');
-    const count = rawAppointments.filter(appt => 
+
+  const appointmentsByDay = weekDays.map((day) => {
+    const dayStr = format(day, "EEE");
+    const count = rawAppointments.filter((appt) =>
       isSameDay(parseISO(appt.appointment_date), day)
     ).length;
     return { name: dayStr, value: count };
   });
 
-  const revenueByDay = weekDays.map(day => {
-    const dayStr = format(day, 'EEE');
-    const revenue = rawAppointments.filter(appt => 
-      isSameDay(parseISO(appt.appointment_date), day)
-    ).reduce((sum, appt) => {
-      const service = rawServices.find(s => s.id === appt.service_id);
-      return sum + (service ? parseFloat(service.price) : 0);
-    }, 0);
+  const revenueByDay = weekDays.map((day) => {
+    const dayStr = format(day, "EEE");
+    const revenue = rawAppointments
+      .filter((appt) => isSameDay(parseISO(appt.appointment_date), day))
+      .reduce((sum, appt) => {
+        const service = rawServices.find((s) => s.id === appt.service_id);
+        return sum + (service ? parseFloat(service.price) : 0);
+      }, 0);
     return { name: dayStr, value: revenue };
   });
 
-  const servicePopularity = rawServices.map(service => {
-    const count = rawAppointments.filter(appt => 
-      appt.service_id === service.id
+  const servicePopularity = rawServices.map((service) => {
+    const count = rawAppointments.filter(
+      (appt) => appt.service_id === service.id
     ).length;
     return { name: service.service_name, value: count };
   });
 
   //? peak hours
-  const hourCounts = Array(24).fill(0).map((_, i) => ({ hour: i, count: 0 }));
-  rawAppointments.forEach(appt => {
-    const hour = parseInt(appt.appointment_time.split(':')[0]);
+  const hourCounts = Array(24)
+    .fill(0)
+    .map((_, i) => ({ hour: i, count: 0 }));
+  rawAppointments.forEach((appt) => {
+    const hour = parseInt(appt.appointment_time.split(":")[0]);
     hourCounts[hour].count++;
   });
   const peakHours = hourCounts
-    .filter(h => h.count > 0)
+    .filter((h) => h.count > 0)
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
-    .map(h => ({ name: `${h.hour}:00`, value: h.count }));
+    .map((h) => ({ name: `${h.hour}:00`, value: h.count }));
 
-  if (plan === "basic") {
+  if (!subs?.features?.analytics?.basic) {
     return null;
   }
 
@@ -135,7 +152,9 @@ export const Analytics = ({
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">₦{todayRevenue.toLocaleString()}</div>
+            <div className="text-3xl font-bold">
+              ₦{todayRevenue.toLocaleString()}
+            </div>
             <p className="text-sm text-muted-foreground">
               ₦{weekRevenue.toLocaleString()} this week
             </p>
@@ -156,7 +175,7 @@ export const Analytics = ({
         </Card>
       </div>
 
-      {(plan === "pro" || plan === "enterprise") && (
+      {subs?.features?.analytics?.intermediate && (
         <>
           <Card>
             <CardHeader>
@@ -193,8 +212,11 @@ export const Analytics = ({
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip 
-                    formatter={(value) => [`₦${value.toLocaleString()}`, "Revenue"]}
+                  <Tooltip
+                    formatter={(value) => [
+                      `₦${value.toLocaleString()}`,
+                      "Revenue",
+                    ]}
                   />
                   <Legend />
                   <Bar
@@ -233,7 +255,7 @@ export const Analytics = ({
         </>
       )}
 
-      {plan === "enterprise" && (
+      {subs?.features?.analytics?.advanced && (
         <Card>
           <CardHeader>
             <CardTitle>Peak Hours</CardTitle>

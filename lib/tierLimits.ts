@@ -256,7 +256,7 @@ export const plans = [
         reviews_visible: false,
       },
       analytics: {
-        basic: false,
+        basic: true,
         intermediate: false,
         advanced: false,
       },
@@ -276,36 +276,76 @@ export const plans = [
     plan: "pro",
     features: {
       stylists: {
-        allowed: 2,
+        allowed: 5,
         unlimited: false,
       },
       appointments: {
-        daily_limit: 10,
-        unlimited: false,
+        daily_limit: 0,
+        unlimited: true,
         real_time_updates: true,
         priority_queue: false,
         ai_optimization: false,
       },
       hairstyles: {
-        predefined_limit: 10,
-        custom_uploads: false,
-        full_library: false,
+        predefined_limit: 0,
+        custom_uploads: true,
+        full_library: true,
       },
       profile: {
         basic_listing: true,
-        reviews_visible: false,
+        reviews_visible: true,
       },
       analytics: {
-        basic: false,
-        intermediate: false,
+        basic: true,
+        intermediate: true,
         advanced: false,
       },
       communication: {
-        in_app_messaging: false,
+        in_app_messaging: true,
         priority_support: false,
       },
       marketing: {
         push_notifications: false,
+      },
+    },
+    active: true,
+    start_date: new Date().toISOString(),
+    billing_cycle: null,
+  },
+  {
+    plan: "enterprise",
+    features: {
+      stylists: {
+        allowed: 0,
+        unlimited: true,
+      },
+      appointments: {
+        daily_limit: 0,
+        unlimited: true,
+        real_time_updates: true,
+        priority_queue: true,
+        ai_optimization: true,
+      },
+      hairstyles: {
+        predefined_limit: 0,
+        custom_uploads: true,
+        full_library: false,
+      },
+      profile: {
+        basic_listing: true,
+        reviews_visible: true,
+      },
+      analytics: {
+        basic: true,
+        intermediate: true,
+        advanced: true,
+      },
+      communication: {
+        in_app_messaging: true,
+        priority_support: true,
+      },
+      marketing: {
+        push_notifications: true,
       },
     },
     active: true,

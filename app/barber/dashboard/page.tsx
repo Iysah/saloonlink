@@ -51,7 +51,7 @@ const supabase = createClient();
 /**
  * Interface for appointment data structure
  */
-interface Appointment {
+export interface Appointment {
   id: string;
   customer_id: string;
   service_id: string;
@@ -73,7 +73,7 @@ interface Appointment {
 /**
  * Interface for queue item data structure
  */
-interface QueueItem {
+export interface QueueItem {
   id: string;
   customer_name: string;
   phone: string;
@@ -760,7 +760,7 @@ export default function BarberDashboard() {
               </Button>
               {/* Show Reviews button only for premium users */}
               {userSubscription !== null &&
-                userSubscription?.plan !== "basic" && (
+                userSubscription?.features?.analytics?.basic && (
                   <Button
                     variant="outline"
                     onClick={() => router.push("/barber/reviews")}
@@ -810,7 +810,7 @@ export default function BarberDashboard() {
                 </Button>
                 {/* Show Reviews button only for premium users */}
                 {userSubscription !== null &&
-                  userSubscription?.plan !== "basic" && (
+                  userSubscription?.features?.analytics?.basic && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start"

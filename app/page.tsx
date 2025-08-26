@@ -29,10 +29,12 @@ import Image from "next/image"
 import Link from "next/link"
 import Footer from '@/components/ui/footer';
 import Navbar from '@/components/ui/navbar';
+import { User } from '@supabase/supabase-js';
 const supabase =  createClient()
 
 export default function HomePage() {
-  const router = useRouter();
+  const [userProfile, setUserProfile] = useState<any>(null);
+const [user, setUser] = useState<User | null>(null)
   const { elementRef: featuresRef, isIntersecting: featuresVisible } = useIntersectionObserver();
 
   useEffect(() => {
@@ -42,12 +44,16 @@ export default function HomePage() {
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      setUser(user)
       // Get user profile to determine role
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
+      if (profile) {
+        setUserProfile(profile)
+      }
 
       // if (profile) {
       //   if (profile.role === 'barber') {
@@ -152,9 +158,14 @@ export default function HomePage() {
                 for salon professionals. Transform your salon today.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
+               {user ? <Link href={`/${userProfile?.role}/dashboard`}>
+                  <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-8">
+                    Go to Dahsboard
+                  </Button>
+                </Link> : <>
                 <Link href="/auth/register?role=barber">
                   <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-8">
-                    Get Started Free
+                    Get Started for Free
                   </Button>
                 </Link>
                 <Link href="/auth/login">
@@ -166,6 +177,7 @@ export default function HomePage() {
                     Sign In
                   </Button>
                 </Link>
+                </>}
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 text-sm text-gray-500">
                 <div className="flex items-center">
