@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
@@ -28,16 +28,15 @@ import {
   Sparkles,
 } from "lucide-react";
 import Image from "next/image";
+import { plans } from "@/lib/tierLimits";
 
-const supabase =  createClient()
-
-
-
+const supabase = createClient();
 
 function RegisterPageComponent() {
-  const params = useSearchParams()
-  const plan = params.get("plan")
-  const trial = params.get("trial")
+  const params = useSearchParams();
+  const plan = params.get("plan");
+  const trial = params.get("trial");
+  const billing = params.get("billing");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -50,14 +49,20 @@ function RegisterPageComponent() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const selectedPlan = useMemo(() => {
+    if (plan && trial === "true") {
+      return plans.find((c) => c?.plan === plan);
+    } else return plans.find((c) => c?.plan === "basic");
+  }, [plan, trial]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.role) {
       setError("Please select your role");
       return;
     }
-    
+
     setLoading(true);
     setError("");
 
@@ -96,44 +101,13 @@ function RegisterPageComponent() {
             formData.role === "barber"
               ? {
                   subscription: {
-                    plan: "basic",
-                    features: {
-                      stylists: {
-                        allowed: 1,
-                        unlimited: false,
-                      },
-                      appointments: {
-                        daily_limit: 5,
-                        unlimited: false,
-                        real_time_updates: false,
-                        priority_queue: false,
-                        ai_optimization: false,
-                      },
-                      hairstyles: {
-                        predefined_limit: 5,
-                        custom_uploads: false,
-                        full_library: false,
-                      },
-                      profile: {
-                        basic_listing: true,
-                        reviews_visible: false,
-                      },
-                      analytics: {
-                        basic: false,
-                        intermediate: false,
-                        advanced: false,
-                      },
-                      communication: {
-                        in_app_messaging: false,
-                        priority_support: false,
-                      },
-                      marketing: {
-                        push_notifications: false,
-                      },
-                    },
-                    active: true,
-                    start_date: null,
-                    billing_cycle: null,
+                    ...selectedPlan,
+                    end_date:
+                      selectedPlan?.plan !== "basic"
+                        ? new Date(
+                            Date.now() + 7 * 24 * 60 * 60 * 1000
+                          ).toISOString()
+                        : null,
                   },
                 }
               : null,
@@ -147,6 +121,8 @@ function RegisterPageComponent() {
 
       // Redirect to appropriate setup page
       if (formData.role === "barber") {
+        if (trial === "false")
+          return router.push(`/payment?plan=${plan}&billing=${billing}`);
         router.push("/barber/setup");
       } else {
         router.push("/customer/dashboard");
@@ -215,9 +191,7 @@ function RegisterPageComponent() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, role: "barber" })
-                    }
+                    onClick={() => setFormData({ ...formData, role: "barber" })}
                     className="flex-1"
                   >
                     <Card className="hover:border-emerald-400 hover:shadow-md transition-all h-full">
@@ -394,11 +368,9 @@ function RegisterPageComponent() {
   );
 }
 
-
 export default function RegisterPage() {
-
-  return 
+  return;
   <Suspense>
-  <RegisterPageComponent/>
-  </Suspense>
+    <RegisterPageComponent />
+  </Suspense>;
 }

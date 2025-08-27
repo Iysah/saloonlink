@@ -24,7 +24,8 @@ const pricingTiers = [
   {
     id: "basic",
     name: "Basic",
-    price: "₦0",
+    monthlyPrice: "₦0",
+    annualPrice: "₦0",
     period: "Free Forever",
     description: "Perfect for individual stylists just getting started",
     features: [
@@ -42,7 +43,8 @@ const pricingTiers = [
   {
     id: "starter",
     name: "Starter",
-    price: "₦5,000",
+    monthlyPrice: "₦5,000",
+    annualPrice: "₦50,000",
     period: "per month",
     description: "Ideal for small barbershops with growing clientele",
     features: [
@@ -57,13 +59,13 @@ const pricingTiers = [
     popular: false,
     icon: Star,
     savings: null,
-    annualPrice: "₦50,000",
     annualSavings: "17%",
   },
   {
     id: "pro",
     name: "Pro",
-    price: "₦15,000",
+    monthlyPrice: "₦15,000",
+    annualPrice: "₦135,000",
     period: "per month",
     description: "Perfect for established barbershops with multiple stylists",
     features: [
@@ -80,13 +82,13 @@ const pricingTiers = [
     popular: true,
     icon: Zap,
     savings: "Most Popular",
-    annualPrice: "₦135,000",
     annualSavings: "25%",
   },
   {
     id: "enterprise",
     name: "Enterprise",
-    price: "₦30,000",
+    monthlyPrice: "₦30,000",
+    annualPrice: "₦270,000",
     period: "per month",
     description: "For large barbershop chains and premium establishments",
     features: [
@@ -102,7 +104,6 @@ const pricingTiers = [
     popular: false,
     icon: Crown,
     savings: null,
-    annualPrice: "₦270,000",
     annualSavings: "25%",
   },
 ];
@@ -138,16 +139,18 @@ export default function PricingPage() {
 
   const handlePlanSelect = (planId: string, isTrial: boolean = false) => {
     if (userProfile) {
-      //? User is logged in - redirect to payment/upgrade page
+      // User is logged in - redirect to payment/upgrade page with billing cycle
       const queryParams = new URLSearchParams({
         plan: planId,
+        billing: billingPeriod,
         action: "upgrade",
       });
       window.location.href = `/payment?${queryParams.toString()}`;
     } else {
-      //? User is not logged in - redirect to registration
+      // User is not logged in - redirect to registration with billing cycle
       const queryParams = new URLSearchParams({
         plan: planId,
+        billing: billingPeriod,
         trial: isTrial ? "true" : "false",
       });
       window.location.href = `/auth/register?${queryParams.toString()}`;
@@ -171,12 +174,12 @@ export default function PricingPage() {
   const shouldShowPlan = (planId: string) => {
     const currentPlan = getCurrentPlan();
 
-    //? If user is not logged in or has no active subscription, show all plans
+    // If user is not logged in or has no active subscription, show all plans
     if (!userProfile || !currentPlan || !currentPlan.active) {
       return true;
     }
 
-    //? If user has an active subscription, only show higher-tier plans
+    // If user has an active subscription, only show higher-tier plans
     const planOrder = ["basic", "starter", "pro", "enterprise"];
     const currentPlanIndex = planOrder.indexOf(currentPlan.id);
     const planIndex = planOrder.indexOf(planId);
@@ -200,6 +203,16 @@ export default function PricingPage() {
     }
 
     return { primary: "Upgrade", secondary: undefined };
+  };
+
+  const getPriceForBillingPeriod = (tier: (typeof pricingTiers)[0]) => {
+    return billingPeriod === "annual" ? tier.annualPrice : tier.monthlyPrice;
+  };
+
+  const getPeriodText = (tier: (typeof pricingTiers)[0]) => {
+    if (tier.id === "basic") return "Free Forever";
+
+    return billingPeriod === "annual" ? "per year" : tier.period;
   };
 
   if (loading) {
@@ -230,14 +243,8 @@ export default function PricingPage() {
               : "Scale your barbershop business with our flexible subscription tiers. Start free and upgrade as you grow."}
           </p>
 
-          {/* Billing Toggle */}
-          <div
-            className={cn(
-              "mt-8 flex justify-center items-center",
-              userProfile?.subscription?.subscription?.plan === "basic" &&
-                "hidden"
-            )}
-          >
+          {/* Billing Toggle -  */}
+          <div className="mt-8 flex justify-center items-center">
             <span
               className={`mr-3 font-medium ${
                 billingPeriod === "monthly"
@@ -254,6 +261,10 @@ export default function PricingPage() {
                 )
               }
               className="relative rounded-full w-14 h-7 bg-slate-300 dark:bg-slate-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              aria-label={`Switch to ${
+                billingPeriod === "monthly" ? "annual" : "monthly"
+              } billing`}
+              aria-pressed={billingPeriod === "annual"}
             >
               <span
                 className={`absolute left-1 top-1 bg-white dark:bg-slate-200 w-5 h-5 rounded-full transition-transform duration-300 ${
@@ -270,7 +281,7 @@ export default function PricingPage() {
             >
               Annual{" "}
               <Badge variant="secondary" className="ml-1">
-                Save 17%
+                Save up to 25%
               </Badge>
             </span>
           </div>
@@ -285,13 +296,7 @@ export default function PricingPage() {
                   <h3 className="font-semibold text-emerald-800 dark:text-emerald-200">
                     Current Plan: {getCurrentPlan()?.name}
                   </h3>
-                  <p
-                    className={cn(
-                      "text-sm text-emerald-700 dark:text-emerald-300",
-                      userProfile?.subscription?.subscription?.plan ===
-                        "basic" && "hidden"
-                    )}
-                  >
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
                     {getCurrentPlan()?.billingCycle === "yearly"
                       ? "Annual"
                       : "Monthly"}{" "}
@@ -394,36 +399,43 @@ export default function PricingPage() {
                   <div className="mt-4">
                     <div className="flex items-baseline justify-center">
                       <span className="text-4xl font-bold text-gray-900 dark:text-white">
-                        {billingPeriod === "annual" && tier.annualPrice
-                          ? tier.annualPrice
-                          : tier.price}
+                        {getPriceForBillingPeriod(tier)}
                       </span>
-                      {tier.period !== "Free Forever" && (
+                      {tier.id !== "basic" && (
                         <span className="text-gray-500 dark:text-gray-400 ml-1">
-                          /
-                          {billingPeriod === "annual"
-                            ? "year"
-                            : tier.period.replace("per ", "")}
+                          /{getPeriodText(tier).replace("per ", "")}
                         </span>
                       )}
                     </div>
 
-                    {tier.period === "Free Forever" && (
+                    {tier.id === "basic" && (
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         No credit card required
                       </p>
                     )}
 
-                    {tier.annualPrice && billingPeriod === "monthly" && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                            {tier.annualPrice}/year ({tier.annualSavings}{" "}
-                            discount)
-                          </span>
-                        </p>
-                      </div>
-                    )}
+                    {tier.id !== "basic" &&
+                      billingPeriod === "monthly" &&
+                      tier.annualSavings && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                              {tier.annualPrice}/year ({tier.annualSavings}{" "}
+                              discount)
+                            </span>
+                          </p>
+                        </div>
+                      )}
+
+                    {tier.id !== "basic" &&
+                      billingPeriod === "annual" &&
+                      tier.annualSavings && (
+                        <div className="mt-2">
+                          <p className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold">
+                            You save {tier.annualSavings}
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </CardHeader>
 
@@ -457,15 +469,11 @@ export default function PricingPage() {
                   >
                     {buttonText.primary}
                   </Button>
-                  {buttonText.secondary && (
+                  {buttonText.secondary && tier.id !== "basic" && (
                     <Button
                       onClick={() => handlePlanSelect(tier.id, false)}
-                      variant={tier.buttonVariant}
-                      className={`w-full ${
-                        tier.popular
-                          ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                          : ""
-                      }`}
+                      variant="outline"
+                      className="w-full"
                     >
                       {buttonText.secondary}
                     </Button>
