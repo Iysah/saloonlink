@@ -41,6 +41,8 @@ import { format } from "date-fns";
 import QRCode from "qrcode";
 import { TProfile } from "@/types/profile.type";
 import { Analytics } from "@/components/analytics/Analytics";
+import { hasSubscriptionExpired } from "@/lib/utils";
+import { plans } from "@/lib/tierLimits";
 
 const supabase = createClient();
 
@@ -145,6 +147,21 @@ export default function BarberDashboard() {
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
 
+
+  const barberSubscription = useMemo(() => {
+    if (barberProfile) {
+      const barberSub = userProfile?.subscription?.subscription;
+      const basicPlan = plans[0];
+      //? has expired - change to basic plan
+
+      //? else continue
+      return barberSub?.plan !== "basic" &&
+        hasSubscriptionExpired(barberSub?.end_date!)
+        ? basicPlan
+        : userProfile?.subscription?.subscription;
+    } else return null;
+  }, [userProfile]);
+
   // ============================================================================
   // EFFECTS
   // ============================================================================
@@ -187,12 +204,12 @@ export default function BarberDashboard() {
     if (!user) return;
     //? define the channel
     //? if not eligible to live return
-    // if (
-    //   !userProfile ||
-    //   !userProfile?.subscription?.subscription?.features?.appointments
-    //     ?.real_time_updates
-    // )
-    //   return;
+    if (
+      !userProfile ||
+      !barberSubscription?.features?.appointments
+        ?.real_time_updates
+    )
+      return;
 
     const channel = supabase.channel(`live-channel`);
 
@@ -284,15 +301,9 @@ export default function BarberDashboard() {
   /**
    * Extract subscription information from user profile
    */
-  const userSubscription = useMemo(() => {
-    if (userProfile) {
-      return userProfile?.subscription?.subscription;
-    } else {
-      return null;
-    }
-  }, [userProfile]);
+ 
 
-  //console.log(userProfile, userSubscription);
+
 
   // ============================================================================
   // AUTHENTICATION FUNCTIONS
@@ -759,8 +770,8 @@ export default function BarberDashboard() {
                 Services
               </Button>
               {/* Show Reviews button only for premium users */}
-              {userSubscription !== null &&
-                userSubscription?.features?.analytics?.basic && (
+              {barberSubscription !== null &&
+                barberSubscription?.features?.analytics?.basic && (
                   <Button
                     variant="outline"
                     onClick={() => router.push("/barber/reviews")}
@@ -809,8 +820,8 @@ export default function BarberDashboard() {
                   Services
                 </Button>
                 {/* Show Reviews button only for premium users */}
-                {userSubscription !== null &&
-                  userSubscription?.features?.analytics?.basic && (
+                {barberSubscription !== null &&
+                  barberSubscription?.features?.analytics?.basic && (
                     <Button
                       variant="ghost"
                       className="w-full justify-start"

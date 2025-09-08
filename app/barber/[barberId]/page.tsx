@@ -13,21 +13,21 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Scissors,
   MapPin,
   Clock,
   Users,
   Calendar,
-  Star,
-  Phone,
-  Loader2,
   Image as ImageIcon,
   ArrowLeft,
 } from "lucide-react";
 import { TProfile } from "@/types/profile.type";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { plans } from "@/lib/tierLimits";
+import { hasSubscriptionExpired } from "@/lib/utils";
+
+
 
 const supabase = createClient();
 
@@ -171,7 +171,15 @@ export default function BarberDetailsPage() {
 
   const barberSubscription = useMemo(() => {
     if (barberProfile) {
-      return barberProfile?.subscription?.subscription;
+      const barberSub = barberProfile?.subscription?.subscription;
+      const basicPlan = plans[0];
+      //? has expired - change to basic plan
+
+      //? else continue
+      return barberSub?.plan !== "basic" &&
+        hasSubscriptionExpired(barberSub?.end_date!)
+        ? basicPlan
+        : barberProfile?.subscription?.subscription;
     } else return null;
   }, [barberProfile]);
 

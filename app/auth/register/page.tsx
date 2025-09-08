@@ -50,7 +50,7 @@ function RegisterPageComponent() {
   const router = useRouter();
 
   const selectedPlan = useMemo(() => {
-    if (plan && trial === "true") {
+    if (plan && trial ) {
       return plans.find((c) => c?.plan === plan);
     } else return plans.find((c) => c?.plan === "basic");
   }, [plan, trial]);

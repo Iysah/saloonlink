@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { TProfile } from "@/types/profile.type";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { hasSubscriptionExpired } from "@/lib/utils";
+import { plans } from "@/lib/tierLimits";
 
 interface Service {
   id: string;
@@ -143,7 +145,15 @@ export default function BarberSetupPage() {
 
   const barberSubscription = useMemo(() => {
     if (fullProfile) {
-      return fullProfile?.subscription?.subscription;
+      const barberSub = fullProfile?.subscription?.subscription;
+      const basicPlan = plans[0];
+      //? has expired - change to basic plan
+
+      //? else continue
+      return barberSub?.plan !== "basic" &&
+        hasSubscriptionExpired(barberSub?.end_date!)
+        ? basicPlan
+        : fullProfile?.subscription?.subscription;
     } else return null;
   }, [fullProfile]);
 

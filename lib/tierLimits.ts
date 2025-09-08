@@ -193,7 +193,7 @@ export const TIER_PRICING = {
 
 export const plans = [
    {
-    plan: "basic",
+    plan: "basic" as "basic" | "starter" | "pro" | "enterprise",
     features: {
       stylists: {
         allowed: 1,
@@ -233,7 +233,7 @@ export const plans = [
     billing_cycle: null,
   },
   {
-    plan: "starter",
+    plan: "starter" as "basic" | "starter" | "pro" | "enterprise",
     features: {
       stylists: {
         allowed: 2,
@@ -273,7 +273,7 @@ export const plans = [
     billing_cycle: null,
   },
   {
-    plan: "pro",
+    plan: "pro" as "basic" | "starter" | "pro" | "enterprise",
     features: {
       stylists: {
         allowed: 5,
@@ -313,7 +313,7 @@ export const plans = [
     billing_cycle: null,
   },
   {
-    plan: "enterprise",
+    plan: "enterprise" as "basic" | "starter" | "pro" | "enterprise",
     features: {
       stylists: {
         allowed: 0,

@@ -48,6 +48,7 @@ export interface TProfile {
     };
     active: boolean;
     start_date: string | null;
+    end_date:string | null;
     billing_cycle: "monthly" | "yearly" | null;
   } 
  } | null;

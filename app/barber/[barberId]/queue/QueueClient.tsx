@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import {
 import { format } from "date-fns";
 import React from "react";
 import { TProfile } from "@/types/profile.type";
+import { plans } from "@/lib/tierLimits";
+import { hasSubscriptionExpired } from "@/lib/utils";
 
 interface QueueItem {
   id: string;
@@ -96,6 +98,22 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
+
+
+  const barberSubscription = useMemo(() => {
+    if (barberProfile) {
+      const barberSub = barberProfile?.subscription?.subscription;
+      const basicPlan = plans[0];
+      //? has expired - change to basic plan
+
+      //? else continue
+      return barberSub?.plan !== "basic" &&
+        hasSubscriptionExpired(barberSub?.end_date!)
+        ? basicPlan
+        : barberProfile?.subscription?.subscription;
+    } else return null;
+  }, [barberProfile]);
+
   useEffect(() => {
     checkAuthentication();
 
@@ -118,12 +136,12 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     //? define the channel
 
         //? if not eligible to live return
-        // if (
-        //   !barberProfile ||
-        //   !barberProfile?.subscription?.subscription?.features?.appointments
-        //     ?.real_time_updates
-        // )
-        //   return;
+        if (
+          !barberProfile ||
+          !barberSubscription?.features?.appointments
+            ?.real_time_updates
+        )
+          return;
     
 
     const channel = supabase.channel(`live-channel`);
