@@ -50,7 +50,7 @@ function RegisterPageComponent() {
   const router = useRouter();
 
   const selectedPlan = useMemo(() => {
-    if (plan && trial ) {
+    if (plan && trial) {
       return plans.find((c) => c?.plan === plan);
     } else return plans.find((c) => c?.plan === "basic");
   }, [plan, trial]);
@@ -369,8 +369,9 @@ function RegisterPageComponent() {
 }
 
 export default function RegisterPage() {
-  return;
-  <Suspense>
-    <RegisterPageComponent />
-  </Suspense>;
+  return (
+    <Suspense>
+      <RegisterPageComponent />
+    </Suspense>
+  );
 }
