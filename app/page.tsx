@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 // import { createClient } from '@/lib/supabase';
 import { auth, db } from '@/lib/firebase-client';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -32,7 +32,7 @@ import Image from "next/image"
 import Link from "next/link"
 import Footer from '@/components/ui/footer';
 import Navbar from '@/components/ui/navbar';
-import { User } from '@supabase/supabase-js';
+// import { User } from '@supabase/supabase-js';
 
 
 export default function HomePage() {
