@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,7 +57,11 @@ interface Appointment {
   };
 }
 
-const supabase =  createClient()
+import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
+
+
 
 export default function CustomerDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -71,79 +74,121 @@ export default function CustomerDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    setUser(user);
-    await fetchBarbers();
-    await fetchUserAppointments(user.id);
-    setLoading(false);
-  };
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        router.push('/auth/login');
+        return;
+      }
+      setUser(firebaseUser);
+      await fetchBarbers();
+      await fetchUserAppointments(firebaseUser.uid);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [router]);
 
   const fetchBarbers = async () => {
-    const { data } = await supabase
-      .from('barber_profiles')
-      .select(`
-        *,
-        profile:profiles(name, profile_picture),
-        services(id, service_name, price, duration_minutes)
-      `)
-      .eq('is_available', true);
+    const barberSnap = await getDocs(
+      query(collection(db, 'barber_profiles'), where('is_available', '==', true))
+    );
 
-    if (data) {
-      // Fetch ratings for each barber
-      const barbersWithRatings = await Promise.all(
-        data.map(async (barber: any) => {
-          const { data: ratingData } = await supabase
-            .from('reviews')
-            .select('rating')
-            .eq('barber_id', barber.user_id);
+    const barbersWithRatings = await Promise.all(
+      barberSnap.docs.map(async (docSnap) => {
+        const barber: any = { user_id: docSnap.id, ...docSnap.data() };
 
-          const ratings = ratingData || [];
-          const averageRating = ratings.length > 0 
-            ? ratings.reduce((sum: number, review: any) => sum + review.rating, 0) / ratings.length 
-            : 0;
+        // Fetch profile
+        let profile: { name: string; profile_picture: string } | undefined = undefined;
+        try {
+          const profileSnap = await getDoc(doc(db, 'profiles', barber.user_id));
+          if (profileSnap.exists()) {
+            const p = profileSnap.data() as any;
+            profile = {
+              name: p?.name || '',
+              profile_picture: p?.profile_picture || '',
+            };
+          }
+        } catch (e) {}
 
-          return {
-            ...barber,
-            average_rating: averageRating,
-            review_count: ratings.length
-          };
-        })
-      );
+        // Fetch services
+        const servicesSnap = await getDocs(
+          query(collection(db, 'services'), where('barber_id', '==', barber.user_id))
+        );
+        const services = servicesSnap.docs.map((s) => ({ id: s.id, ...(s.data() as any) }));
 
-      setBarbers(barbersWithRatings);
-      console.log(barbersWithRatings);
-    }
+        // Fetch ratings
+        const ratingSnap = await getDocs(
+          query(collection(db, 'reviews'), where('barber_id', '==', barber.user_id))
+        );
+        const ratings = ratingSnap.docs.map((r) => ((r.data() as any)?.rating ?? 0));
+        const averageRating = ratings.length > 0
+          ? ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length
+          : 0;
+
+        return {
+          ...barber,
+          profile,
+          services,
+          average_rating: averageRating,
+          review_count: ratings.length,
+        };
+      })
+    );
+
+    setBarbers(barbersWithRatings as any);
   };
 
   const fetchUserAppointments = async (userId: string) => {
-    const { data } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        barber:barber_profiles!appointments_barber_id_fkey(
-          salon_name,
-          location,
-          profile:profiles(name)
-        ),
-        service:services(service_name, price)
-      `)
-      .eq('customer_id', userId)
-      .gte('appointment_date', new Date().toISOString().split('T')[0])
-      .order('appointment_date')
-      .order('appointment_time');
+    const today = new Date().toISOString().split('T')[0];
+
+    const q = query(
+      collection(db, 'appointments'),
+      where('customer_id', '==', userId),
+      where('appointment_date', '>=', today),
+      orderBy('appointment_date'),
+      orderBy('appointment_time')
+    );
+
+    const apptSnap = await getDocs(q);
+
+    const data = await Promise.all(
+      apptSnap.docs.map(async (d) => {
+        const appt: any = { id: d.id, ...(d.data() as any) };
+
+        // Join barber info
+        let barber: any = appt.barber;
+        try {
+          const barberSnap = await getDoc(doc(db, 'barber_profiles', appt.barber_id));
+          if (barberSnap.exists()) {
+            const bp = barberSnap.data() as any;
+            let profile: any = undefined;
+            const profSnap = await getDoc(doc(db, 'profiles', appt.barber_id));
+            if (profSnap.exists()) profile = { name: (profSnap.data() as any)?.name };
+            barber = { salon_name: bp?.salon_name, location: bp?.location, profile };
+          }
+        } catch (e) {}
+
+        // Join service info
+        let service: any = appt.service;
+        try {
+          const svcSnap = await getDoc(doc(db, 'services', appt.service_id));
+          if (svcSnap.exists()) {
+            const sv = svcSnap.data() as any;
+            service = { service_name: sv?.service_name, price: sv?.price };
+          }
+        } catch (e) {}
+
+        return { ...appt, barber, service } as Appointment;
+      })
+    );
 
     if (data) {
       setAppointments(data as any);
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/auth/login');
   };
 
   const filteredAndSortedBarbers = barbers
@@ -160,10 +205,7 @@ export default function CustomerDashboard() {
       }
     });
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/auth/login');
-  };
+
 
   if (loading) {
     return (

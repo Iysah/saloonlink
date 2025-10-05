@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { auth, db } from "@/lib/firebase-client";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, getDoc, getDocs, doc, addDoc, limit } from "firebase/firestore";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,8 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Calendar, Clock, MapPin, Scissors, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
-
-const supabase = createClient()
 
 export default function BookBarberPage() {
   const router = useRouter();
@@ -38,24 +38,23 @@ export default function BookBarberPage() {
 
   useEffect(() => {
     checkUser();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (!u) router.push("/auth/login");
+    });
+    return () => unsubscribe();
   }, []);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const u = auth.currentUser;
+    if (!u) {
       router.push("/auth/login");
       return;
     }
-    setUser(user);
-    // Fetch customer profile for autofill - handle potential multiple rows gracefully
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('name, phone')
-      .eq('id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (profile) {
+    setUser(u);
+    // Fetch customer profile for autofill
+    const profileSnap = await getDoc(doc(db, 'profiles', u.uid));
+    if (profileSnap.exists()) {
+      const profile: any = profileSnap.data();
       setCustomerName(profile.name || '');
       setCustomerPhone(profile.phone || '');
     }
@@ -64,30 +63,38 @@ export default function BookBarberPage() {
   };
 
   const fetchBarberInfo = async () => {
-    const { data: barberData, error: barberError } = await supabase
-      .from("barber_profiles")
-      .select("*, profile:profiles(name, profile_picture)")
-      .eq("user_id", barberId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (barberError) {
+    try {
+      const q = query(
+        collection(db, "barber_profiles"),
+        where("user_id", "==", barberId),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        console.error("Barber not found");
+        return;
+      }
+      const barberData = snap.docs[0].data() as any;
+      // attach profile info
+      const profSnap = await getDoc(doc(db, 'profiles', barberId));
+      const profile = profSnap.exists() ? (profSnap.data() as any) : {};
+      setBarber({
+        ...barberData,
+        profile: {
+          name: profile?.name || '',
+          profile_picture: profile?.profile_picture || '',
+        }
+      });
+      const svcQ = query(
+        collection(db, "services"),
+        where("barber_id", "==", barberId)
+      );
+      const svcSnap = await getDocs(svcQ);
+      const servicesData = svcSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      setServices(servicesData || []);
+    } catch (barberError) {
       console.error("Error fetching barber info:", barberError);
-      return;
     }
-    
-    if (!barberData) {
-      console.error("Barber not found");
-      return;
-    }
-    
-    setBarber(barberData);
-    const { data: servicesData } = await supabase
-      .from("services")
-      .select("id, service_name, price, duration_minutes")
-      .eq("barber_id", barberId);
-    setServices(servicesData || []);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,34 +108,23 @@ export default function BookBarberPage() {
       return;
     }
     try {
-      console.log("[Book] Submitting appointment:", { userId: user.id, barberId, selectedService, date, time, notes });
-      const { error: insertError } = await supabase
-        .from("appointments")
-        .insert({
-          customer_id: user.id,
-          barber_id: barberId,
-          service_id: selectedService,
-          appointment_date: date,
-          appointment_time: time,
-          status: "scheduled",
-          notes
-        });
-      if (insertError) {
-        console.error("[Book] Error inserting appointment:", insertError);
-        throw insertError;
-      }
+      const u = auth.currentUser;
+      if (!u) throw new Error("Not authenticated");
+      console.log("[Book] Submitting appointment:", { userId: u.uid, barberId, selectedService, date, time, notes });
+      await addDoc(collection(db, "appointments"), {
+        customer_id: u.uid,
+        barber_id: barberId,
+        service_id: selectedService,
+        appointment_date: date,
+        appointment_time: time,
+        status: "scheduled",
+        notes,
+        created_at: new Date().toISOString(),
+      });
       console.log("[Book] Appointment inserted successfully");
-      // Fetch customer phone number - handle potential multiple rows gracefully
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("phone")
-        .eq("id", user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (profileError) {
-        console.error("[Book] Error fetching profile:", profileError);
-      }
+      // Fetch customer phone number
+      const profileSnap = await getDoc(doc(db, 'profiles', u.uid));
+      const profile: any = profileSnap.exists() ? profileSnap.data() : null;
       console.log("[Book] Fetched profile:", profile);
       // Get service name
       const serviceObj = services.find(s => s.id === selectedService);
@@ -289,4 +285,4 @@ export default function BookBarberPage() {
       </div>
     </div>
   );
-} 
+}

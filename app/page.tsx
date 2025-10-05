@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+// import { createClient } from '@/lib/supabase';
+import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { useIntersectionObserver } from '@/hooks/use-intersection-observer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,41 +33,28 @@ import Link from "next/link"
 import Footer from '@/components/ui/footer';
 import Navbar from '@/components/ui/navbar';
 import { User } from '@supabase/supabase-js';
-const supabase =  createClient()
+
 
 export default function HomePage() {
   const [userProfile, setUserProfile] = useState<any>(null);
-const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any>(null);
   const { elementRef: featuresRef, isIntersecting: featuresVisible } = useIntersectionObserver();
 
   useEffect(() => {
-    checkUser();
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        // Get user profile to determine role
+        const profileSnap = await getDoc(doc(db, 'profiles', firebaseUser.uid));
+        if (profileSnap.exists()) {
+          setUserProfile(profileSnap.data());
+        }
+      }
+    });
+    return () => unsub();
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUser(user)
-      // Get user profile to determine role
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      if (profile) {
-        setUserProfile(profile)
-      }
-
-      // if (profile) {
-      //   if (profile.role === 'barber') {
-      //     router.push('/barber/dashboard');
-      //   } else {
-      //     router.push('/customer/dashboard');
-      //   }
-      // }
-    }
-  };
-
+  const checkUser = async () => { /* Supabase auth check removed */ };
   const features = [
     {
       icon: Calendar,
@@ -139,7 +129,7 @@ const [user, setUser] = useState<User | null>(null)
       <Navbar />
 
       {/* Hero Section */}
-      <section className="pt-12 pb-16 sm:pt-16 sm:pb-20 bg-gradient-to-br from-emerald-50 via-white to-amber-50">
+      <section className="pt-12 pb-16 sm:pt-16 sm:pb-20 bg-gradient-to-br from-emerald-50 via-white to-amber-500">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
@@ -158,9 +148,9 @@ const [user, setUser] = useState<User | null>(null)
                 for salon professionals. Transform your salon today.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
-               {user ? <Link href={`/${userProfile?.role}/dashboard`}>
+               {user ? <Link href={userProfile?.role === 'barber' ? '/barber/dashboard' : userProfile?.role === 'customer' ? '/customer/dashboard' : '/customer/dashboard'}>
                   <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium px-8">
-                    Go to Dahsboard
+                    Go to Dashboard
                   </Button>
                 </Link> : <>
                 <Link href="/auth/register?role=barber">

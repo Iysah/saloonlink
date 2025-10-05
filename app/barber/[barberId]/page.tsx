@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,10 +25,19 @@ import { TProfile } from "@/types/profile.type";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { plans } from "@/lib/tierLimits";
 import { hasSubscriptionExpired } from "@/lib/utils";
-
-
-
-const supabase = createClient();
+import { db } from "@/lib/firebase-client";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  doc,
+  getDoc,
+} from "firebase/firestore";
+// Add count aggregation for appointments
+import { getCountFromServer } from "firebase/firestore";
 
 interface Service {
   id: string;
@@ -83,81 +91,81 @@ export default function BarberDetailsPage() {
   }, [barberId]);
 
   const fetchBarberProfile = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(`*`)
-      .eq("user_id", barberId)
-      .single();
-
-    if (error) {
-      console.error("Error fetching barber info:", error);
-      return;
-    }
-
-    if (data) {
-      setBarberProfile(data as any);
+    try {
+      const profileRef = doc(db, "profiles", barberId);
+      const profileSnap = await getDoc(profileRef);
+      if (profileSnap.exists()) {
+        setBarberProfile(profileSnap.data() as TProfile);
+      }
+    } catch (err) {
+      console.error("Error fetching barber profile:", err);
     }
   };
 
   const fetchAppointments = async () => {
-    const { data, error, count } = await supabase
-      .from("appointments")
-      .select(`*`)
-      .eq("barber_id", barberId)
-      .single();
-
-    if (error) {
-      console.error("Error fetching barber info:", error);
-      return;
-    }
-
-    if (count) {
+    try {
+      const q = query(
+        collection(db, "appointments"),
+        where("barber_id", "==", barberId)
+      );
+      const aggregateSnap = await getCountFromServer(q);
+      const count = aggregateSnap.data().count || 0;
       setAppointmentsCount(count);
+    } catch (err) {
+      console.error("Error fetching appointments count:", err);
     }
   };
 
   const fetchBarberDetails = async () => {
     try {
-      // Fetch barber profile - handle potential multiple rows gracefully
-      const { data: barberData, error: barberError } = await supabase
-        .from("barber_profiles")
-        .select("*, profile:profiles(name, profile_picture)")
-        .eq("user_id", barberId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (barberError) throw barberError;
-
-      if (!barberData) {
+      // Get latest barber profile doc by user_id
+      const barberProfilesQ = query(
+        collection(db, "barber_profiles"),
+        where("user_id", "==", barberId),
+        orderBy("created_at", "desc"),
+        limit(1)
+      );
+      const barberProfilesSnap = await getDocs(barberProfilesQ);
+      if (barberProfilesSnap.empty) {
         setError("Barber not found");
         return;
       }
+      const barberData = barberProfilesSnap.docs[0].data();
 
-      setBarber(barberData as any);
+      // Fetch linked profile info for name and avatar
+      let profileData: { name?: string; profile_picture?: string } = {};
+      try {
+        const profileRef = doc(db, "profiles", barberId);
+        const profileSnap = await getDoc(profileRef);
+        if (profileSnap.exists()) {
+          const p = profileSnap.data() as any;
+          profileData = { name: p?.name, profile_picture: p?.profile_picture };
+        }
+      } catch (err) {
+        console.warn("Could not fetch linked profile:", err);
+      }
 
-      // Fetch services with images
-      const { data: servicesData, error: servicesError } = await supabase
-        .from("services")
-        .select("id, service_name, price, duration_minutes")
-        .eq("barber_id", barberId)
-        .order("created_at");
+      setBarber({ ...(barberData as any), profile: profileData } as any);
 
-      if (servicesError) throw servicesError;
+      // Fetch services for barber
+      const servicesQ = query(
+        collection(db, "services"),
+        where("barber_id", "==", barberId),
+        orderBy("created_at", "asc")
+      );
+      const servicesSnap = await getDocs(servicesQ);
+      const baseServices = servicesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
 
-      // Fetch images for each service
       const servicesWithImages = await Promise.all(
-        (servicesData || []).map(async (service) => {
-          const { data: images } = await supabase
-            .from("service_images")
-            .select("*")
-            .eq("service_id", service.id)
-            .order("image_order");
-
-          return {
-            ...service,
-            images: images || [],
-          };
+        baseServices.map(async (service: any) => {
+          const imagesQ = query(
+            collection(db, "service_images"),
+            where("service_id", "==", service.id),
+            orderBy("image_order", "asc")
+          );
+          const imagesSnap = await getDocs(imagesQ);
+          const images = imagesSnap.docs.map((img) => ({ id: img.id, ...(img.data() as any) }));
+          return { ...service, images } as Service;
         })
       );
 

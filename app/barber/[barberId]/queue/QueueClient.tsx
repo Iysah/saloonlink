@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { auth, db } from "@/lib/firebase-client";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, getDocs, getDoc, doc, addDoc, orderBy, limit, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,8 +56,6 @@ interface BarberInfo {
     profile_picture: string;
   };
 }
-
-const supabase = createClient();
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -117,116 +117,58 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   useEffect(() => {
     checkAuthentication();
 
-    // Listen for auth state changes (token expiration, logout, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !session)) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
         router.push("/auth/login");
       }
     });
 
     return () => {
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, [router]);
 
   useEffect(() => {
     if (!barberId) return;
-    //? define the channel
+    const q = query(collection(db, "queue"), where("barber_id", "==", barberId));
 
-        //? if not eligible to live return
-        if (
-          !barberProfile ||
-          !barberSubscription?.features?.appointments
-            ?.real_time_updates
-        )
-          return;
-    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          ...data,
+        } as QueueItem;
+      });
+      const updatedQueue = items
+        .filter((v) => v.status !== "completed")
+        .sort((a, b) => a.position - b.position);
+      setQueue(updatedQueue);
 
-    const channel = supabase.channel(`live-channel`);
-
-   // console.log(channel);
-
-    //? Listen for UPDATE events
-    channel.on(
-      "postgres_changes",
-      {
-        event: "UPDATE",
-        schema: "public",
-        table: "queue",
-        filter: `barber_id=eq.${barberId}`,
-      },
-      (payload) => {
-        // console.log("payload from live UPDATE", payload);
-        const updated = payload.new as QueueItem;
-        if (Array.isArray(queue)) {
-          const updatedQueue = queue.map((item) => {
-            if (item.id === updated.id) {
-              return { ...updated };
-            }
-            return item;
-          });
-          // .eq("status", "waiting")
-          setQueue(
-            updatedQueue
-               .filter((v) => v.status !== "completed")
-              .sort((a, b) => a.position - b.position)
-          );
-        }
+      const existingUser = updatedQueue.find((item) => item.phone === customerPhone);
+      if (existingUser) {
+        setUserQueueItem(existingUser);
+        setJoinedQueue(true);
       }
-    );
-
-    //? Listen for INSERT events
-    channel.on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "queue",
-        filter: `barber_id=eq.${barberId}`,
-      },
-      (payload) => {
-        // console.log("payload from live INSERT", payload);
-        if (Array.isArray(queue)) {
-          setQueue(
-            [...queue, payload.new as QueueItem]
-               .filter((v) => v.status !== "completed")
-              .sort((a, b) => a.position - b.position)
-          );
-        }
-      }
-    );
-
-    //? Subscribe to the channel
-    channel.subscribe((status) => {
-      console.log("Subscription status:", status);
     });
 
     return () => {
-      //? Cleanup the channel on unmount
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
-  }, [barberId, supabase, queue, barberProfile]);
+  }, [barberId, barberProfile, barberSubscription, customerPhone]);
 
   const checkAuthentication = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = auth.currentUser;
     if (!user) {
       router.push("/auth/login");
       return;
     }
     setIsAuthenticated(true);
-    setCurrentUserId(user.id);
+    setCurrentUserId(user.uid);
 
-    // Fetch customer profile for autofill
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("name, phone")
-      .eq("id", user.id)
-      .single();
-    if (profile) {
+    const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+    if (profileSnap.exists()) {
+      const profile = profileSnap.data() as any;
       setCustomerName(profile.name || "");
       setCustomerPhone(profile.phone || "");
     }
@@ -244,55 +186,61 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
   }, [barberId, isAuthenticated]);
 
   const fetchBarberInfo = async () => {
-    const { data, error } = await supabase
-      .from("barber_profiles")
-      .select(`*, profile:profiles(name, profile_picture)`)
-      .eq("user_id", barberId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const q = query(
+        collection(db, "barber_profiles"),
+        where("user_id", "==", barberId),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const barberData = snap.docs[0].data() as any;
+        const profileSnap = await getDoc(doc(db, "profiles", barberId));
+        const profileData = profileSnap.exists() ? (profileSnap.data() as any) : {};
+        setBarber({
+          ...(barberData as any),
+          profile: {
+            name: profileData?.name || "",
+            profile_picture: profileData?.profile_picture || "",
+          },
+        } as BarberInfo);
+      }
+    } catch (error) {
       console.error("Error fetching barber info:", error);
-      return;
-    }
-
-    if (data) {
-      setBarber(data as any);
     }
   };
   const fetchBarberProfile = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(`*`)
-      .eq("user_id", barberId)
-      .single();
-
-    if (error) {
+    try {
+      const snap = await getDoc(doc(db, "profiles", barberId));
+      if (snap.exists()) {
+        setBarberProfile(snap.data() as TProfile);
+      }
+    } catch (error) {
       console.error("Error fetching barber info:", error);
-      return;
-    }
-
-    if (data) {
-      setBarberProfile(data as any);
     }
   };
 
   const fetchQueue = async () => {
-    const { data } = await supabase
-      .from("queue")
-      .select("*")
-      .eq("barber_id", barberId)
-      // .eq("status", "waiting")
-      .order("position");
-    if (data) {
-      setQueue(data.filter((v) => v.status !== 'completed'));
-      console.log(queue);
-      const existingUser = data.find((item) => item.phone === customerPhone);
+    try {
+      const q = query(
+        collection(db, "queue"),
+        where("barber_id", "==", barberId),
+        orderBy("position")
+      );
+      const snap = await getDocs(q);
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      })) as QueueItem[];
+      const filtered = data.filter((v) => v.status !== "completed");
+      setQueue(filtered);
+      const existingUser = filtered.find((item) => item.phone === customerPhone);
       if (existingUser) {
         setUserQueueItem(existingUser);
         setJoinedQueue(true);
       }
+    } catch (error) {
+      console.error("Error fetching queue:", error);
     }
   };
 
@@ -302,39 +250,49 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
     setJoining(true);
     setError("");
     try {
-      const { data: existingQueue } = await supabase
-        .from("queue")
-        .select("*")
-        .eq("barber_id", barberId)
-        .eq("phone", customerPhone)
-        .eq("status", "waiting");
-      if (existingQueue && existingQueue.length > 0) {
+      const existingQ = query(
+        collection(db, "queue"),
+        where("barber_id", "==", barberId),
+        where("phone", "==", customerPhone),
+        where("status", "==", "waiting")
+      );
+      const existingSnap = await getDocs(existingQ);
+      if (!existingSnap.empty) {
         setError("This phone number is already in the queue");
         setJoining(false);
         return;
       }
       const nextPosition = queue.length + 1;
       const estimatedWait = nextPosition * 20;
-      const { data, error: insertError } = await supabase
-        .from("queue")
-        .insert({
-          barber_id: barberId,
-          customer_name: customerName,
-          phone: customerPhone,
-          position: nextPosition,
-          estimated_wait_minutes: estimatedWait,
-        })
-        .select()
-        .single();
-      if (insertError) throw insertError;
-      setUserQueueItem(data);
+      const docRef = await addDoc(collection(db, "queue"), {
+        barber_id: barberId,
+        customer_name: customerName,
+        phone: customerPhone,
+        position: nextPosition,
+        estimated_wait_minutes: estimatedWait,
+        status: "waiting",
+        join_time: new Date().toISOString(),
+      });
+
+      const newItem: QueueItem = {
+        id: docRef.id,
+        customer_name: customerName,
+        phone: customerPhone,
+        position: nextPosition,
+        estimated_wait_minutes: estimatedWait,
+        status: "waiting",
+        join_time: new Date().toISOString(),
+      };
+      setUserQueueItem(newItem);
       setJoinedQueue(true);
-      await supabase.from("notifications").insert({
+
+      await addDoc(collection(db, "notifications"), {
         type: "queue_confirmation",
         message: `You've joined the queue at ${barber.salon_name}. You're #${nextPosition} in line.`,
         phone: customerPhone,
+        created_at: serverTimestamp(),
       });
-      // Send WhatsApp queue confirmation
+
       if (customerPhone && barber.salon_name) {
         const { whatsappService } = await import("@/lib/termii");
         await whatsappService.sendQueueConfirmation(
@@ -345,7 +303,7 @@ const QueueClient: React.FC<QueueClientProps> = ({ barberId }) => {
         );
       }
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || "Failed to join queue");
     } finally {
       setJoining(false);
     }

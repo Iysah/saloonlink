@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase";
+// Supabase client removed during Firebase migration
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +30,9 @@ import {
 import Image from "next/image";
 import { plans } from "@/lib/tierLimits";
 
-const supabase = createClient();
+import { auth, db } from "@/lib/firebase-client";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 function RegisterPageComponent() {
   const params = useSearchParams();
@@ -67,36 +69,24 @@ function RegisterPageComponent() {
     setError("");
 
     try {
-      // Create auth user with metadata
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            role: formData.role,
-            phone: formData.phone,
-          },
-        },
-      });
+      // Create auth user in Firebase
+      const cred = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      await updateProfile(cred.user, { displayName: formData.name });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create user");
-
-      // The database trigger will automatically create the profile
-      // Wait a moment for the trigger to execute
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Update the profile with the correct information (in case trigger used defaults)
-      // Use upsert to handle cases where profile might already exist
-      const { error: profileError } = await supabase.from("profiles").upsert(
+      // Create/merge profile in Firestore
+      const uid = cred.user.uid;
+      await setDoc(
+        doc(db, "profiles", uid),
         {
-          id: authData.user.id,
+          id: uid,
           name: formData.name,
           role: formData.role,
           email: formData.email,
           phone: formData.phone,
-          //? add user subscription info
           subscription:
             formData.role === "barber"
               ? {
@@ -104,20 +94,14 @@ function RegisterPageComponent() {
                     ...selectedPlan,
                     end_date:
                       selectedPlan?.plan !== "basic"
-                        ? new Date(
-                            Date.now() + 7 * 24 * 60 * 60 * 1000
-                          ).toISOString()
+                        ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
                         : null,
                   },
                 }
               : null,
         },
-        {
-          onConflict: "id",
-        }
+        { merge: true }
       );
-
-      if (profileError) throw profileError;
 
       // Redirect to appropriate setup page
       if (formData.role === "barber") {
@@ -340,7 +324,7 @@ function RegisterPageComponent() {
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        Create Account
+                        Create an Account
                       </>
                     )}
                   </Button>

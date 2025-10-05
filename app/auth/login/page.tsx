@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,8 +16,9 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
-
-const supabase =  createClient()
+import { auth, db } from "@/lib/firebase-client";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,21 +33,14 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = credential.user.uid;
 
       // Get user profile to determine role
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profileError) throw profileError;
+      const profileRef = doc(db, "profiles", uid);
+      const profileSnap = await getDoc(profileRef);
+      if (!profileSnap.exists()) throw new Error("Profile not found");
+      const profile = profileSnap.data() as any;
 
       // Redirect based on role
       if (profile.role === "barber") {

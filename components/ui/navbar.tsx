@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js";
+import { auth, db } from "@/lib/firebase-client";
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -15,50 +16,48 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LayoutDashboard, LogOut } from "lucide-react";
 
-const supabase = createClient()
-
 export default function Navbar() {
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    checkUser();
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        try {
+          const snap = await getDoc(doc(db, "profiles", currentUser.uid));
+          if (snap.exists()) {
+            setUserProfile(snap.data());
+          }
+        } catch (err) {
+          console.error("Failed to load profile", err);
+        }
+      } else {
+        setUser(null);
+        setUserProfile(null);
+      }
+    });
+
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
+      unsubscribe();
     };
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUser(user);
- 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profile) {
-        setUserProfile(profile);
-      }
-    }
-  };
-
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     setUser(null);
     setUserProfile(null);
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   return (
@@ -92,7 +91,7 @@ export default function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={userProfile?.avatar_url || ''} alt={user.email || ''} />
+                      <AvatarImage src={userProfile?.avatar_url || ""} alt={user?.email || ""} />
                       <AvatarFallback className="bg-emerald-500 text-white">
                         {userProfile?.name?.charAt(0).toUpperCase()}
                       </AvatarFallback>
@@ -106,7 +105,7 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={handleLogout}
                     className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 flex items-center"
                   >
