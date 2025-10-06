@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ReviewForm } from '@/components/ui/review-form';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,8 +28,6 @@ interface Appointment {
   };
 }
 
-const supabase = createClient()
-
 
 export default function ReviewPage() {
   const params = useParams();
@@ -39,101 +39,118 @@ export default function ReviewPage() {
   const [error, setError] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [existingReview, setExistingReview] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
 
   useEffect(() => {
-    if (appointmentId) {
-      fetchAppointment();
-    }
-  }, [appointmentId]);
-
-  const fetchAppointment = async () => {
-    try {
-      // Check if user is authenticated
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
         setError('You must be logged in to leave a review');
         setLoading(false);
+        router.push('/auth/login');
         return;
       }
-
-      // Fetch appointment details - handle potential multiple rows gracefully
-      const { data: appointmentData, error: appointmentError } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          appointment_date,
-          appointment_time,
-          status,
-          barber:barber_profiles!appointments_barber_id_fkey(
-            user_id,
-            salon_name,
-            profile:profiles(name)
-          ),
-          service:services(service_name)
-        `)
-        .eq('id', appointmentId)
-        .eq('customer_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (appointmentError) {
-        throw appointmentError;
+      setCurrentUser(u);
+      if (appointmentId) {
+        await fetchAppointment(u.uid);
       }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [appointmentId]);
 
-      if (!appointmentData) {
+  const fetchAppointment = async (uid: string) => {
+    try {
+      const apptSnap = await getDoc(doc(db, 'appointments', appointmentId));
+      if (!apptSnap.exists()) {
         setError('Appointment not found');
-        setLoading(false);
+        return;
+      }
+      const apptData = apptSnap.data() as any;
+
+      // Verify appointment belongs to current user
+      if (apptData?.customer_id !== uid) {
+        setError('You can only review your own appointment');
         return;
       }
 
       // Check if appointment is completed
-      if (appointmentData.status !== 'completed') {
+      if (apptData?.status !== 'completed') {
         setError('You can only review completed appointments');
-        setLoading(false);
         return;
       }
 
-      setAppointment(appointmentData as any);
+      // Join barber info
+      let barber: any = { user_id: apptData?.barber_id, salon_name: '', profile: { name: '' } };
+      try {
+        const barberSnap = await getDoc(doc(db, 'barber_profiles', apptData.barber_id));
+        if (barberSnap.exists()) {
+          const bp = barberSnap.data() as any;
+          barber.salon_name = bp?.salon_name || '';
+        }
+        const profSnap = await getDoc(doc(db, 'profiles', apptData.barber_id));
+        if (profSnap.exists()) {
+          const pd = profSnap.data() as any;
+          barber.profile = { name: pd?.name || '' };
+        }
+      } catch (e) {}
+
+      // Join service info
+      let service: any = { service_name: '' };
+      try {
+        const svcSnap = await getDoc(doc(db, 'services', apptData.service_id));
+        if (svcSnap.exists()) {
+          const sv = svcSnap.data() as any;
+          service.service_name = sv?.service_name || '';
+        }
+      } catch (e) {}
+
+      const appointment: Appointment = {
+        id: appointmentId,
+        appointment_date: apptData?.appointment_date || '',
+        appointment_time: apptData?.appointment_time || '',
+        status: apptData?.status || '',
+        barber: {
+          user_id: apptData?.barber_id,
+          salon_name: barber.salon_name,
+          profile: { name: barber.profile?.name || '' },
+        },
+        service: { service_name: service.service_name },
+      };
+
+      setAppointment(appointment);
 
       // Check if review already exists
-      const { data: existingReviewData } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('appointment_id', appointmentId)
-        .eq('customer_id', user.id)
-        .single();
-
-      if (existingReviewData) {
-        setExistingReview(existingReviewData);
-      }
-
+      try {
+        const q = query(
+          collection(db, 'reviews'),
+          where('appointment_id', '==', appointmentId),
+          where('customer_id', '==', uid)
+        );
+        const existingSnap = await getDocs(q);
+        if (!existingSnap.empty) {
+          setExistingReview(existingSnap.docs[0].data());
+        }
+      } catch (e) {}
     } catch (err: any) {
       setError(err.message || 'Failed to load appointment');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSubmitReview = async (rating: number, reviewText: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !appointment) return;
-
-    const { error } = await supabase
-      .from('reviews')
-      .insert({
-        customer_id: user.id,
+    if (!currentUser || !appointment) return;
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        customer_id: currentUser.uid,
         barber_id: appointment.barber.user_id,
         appointment_id: appointmentId,
         rating,
-        review_text: reviewText || null
+        review_text: reviewText || null,
+        created_at: serverTimestamp(),
       });
-
-    if (error) {
-      throw error;
+      setReviewSubmitted(true);
+    } catch (error: any) {
+      setError(error.message || 'Failed to submit review');
     }
-
-    setReviewSubmitted(true);
   };
 
   if (loading) {
@@ -256,4 +273,4 @@ export default function ReviewPage() {
       </div>
     </div>
   );
-} 
+}
