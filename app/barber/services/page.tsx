@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, orderBy, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +22,6 @@ interface Service {
   duration_minutes: number;
   created_at: string;
 }
-const supabase = createClient()
 
 export default function BarberServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -37,21 +38,27 @@ export default function BarberServicesPage() {
   const [editError, setEditError] = useState('');
   const router = useRouter();
 
+  // Remove outdated Supabase checkUser call
   useEffect(() => {
-    checkUser();
+    // handled by onAuthStateChanged
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-    setUser(user);
-  };
+  // Supabase removed; using Firebase Auth and Firestore
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        router.push('/auth/login');
+        setUser(null);
+        setLoading(false);
+      } else {
+        setUser(u);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.uid) {
       fetchServices();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -59,16 +66,18 @@ export default function BarberServicesPage() {
 
   const fetchServices = async () => {
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('barber_id', user.id)
-        .order('created_at');
-
-      if (error) throw error;
-      setServices(data || []);
+      setError('');
+      setLoading(true);
+      const q = query(
+        collection(db, 'services'),
+        where('barber_id', '==', user.uid),
+        orderBy('created_at')
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      setServices((list as any) || []);
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Failed to fetch services');
     } finally {
       setLoading(false);
     }
@@ -84,12 +93,13 @@ export default function BarberServicesPage() {
     setEditError('');
   };
 
+  // Replace Supabase update with Firestore update
   const handleSaveService = async () => {
     if (!editingService) return;
-
+  
     setSaving(true);
     setEditError('');
-
+  
     try {
       // Validate form
       if (!editForm.service_name || !editForm.price || !editForm.duration_minutes) {
@@ -97,41 +107,37 @@ export default function BarberServicesPage() {
         setSaving(false);
         return;
       }
-
+  
       const price = parseFloat(editForm.price);
       const duration = parseInt(editForm.duration_minutes, 10);
-
+  
       if (isNaN(price) || isNaN(duration)) {
         setEditError('Price and duration must be valid numbers');
         setSaving(false);
         return;
       }
-
+  
       if (price <= 0 || duration <= 0) {
         setEditError('Price and duration must be greater than 0');
         setSaving(false);
         return;
       }
-
-      // Update service
-      const { error } = await supabase
-        .from('services')
-        .update({
-          service_name: editForm.service_name,
-          price: price,
-          duration_minutes: duration
-        })
-        .eq('id', editingService.id);
-
-      if (error) throw error;
-
+  
+      await updateDoc(doc(db, 'services', editingService.id), {
+        service_name: editForm.service_name,
+        price,
+        duration_minutes: duration,
+      });
+  
       // Update local state
-      setServices(services.map(service => 
-        service.id === editingService.id 
-          ? { ...service, service_name: editForm.service_name, price, duration_minutes: duration }
-          : service
-      ));
-
+      setServices(
+        services.map((service) =>
+          service.id === editingService.id
+            ? { ...service, service_name: editForm.service_name, price, duration_minutes: duration }
+            : service
+        )
+      );
+  
       setEditingService(null);
       setEditForm({ service_name: '', price: '', duration_minutes: '' });
     } catch (error: any) {
@@ -316,4 +322,4 @@ export default function BarberServicesPage() {
       </div>
     </div>
   );
-} 
+}

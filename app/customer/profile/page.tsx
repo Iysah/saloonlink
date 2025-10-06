@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { auth, db, storage } from '@/lib/firebase-client';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,10 +13,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft } from 'lucide-react';
 
-const supabase =  createClient()
-
 export default function CustomerProfile() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<any>({ name: "", profile_picture: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,27 +23,31 @@ export default function CustomerProfile() {
   const router = useRouter();
 
   useEffect(() => {
-    checkUser();
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(currentUser);
+      await fetchProfile(currentUser.uid);
+      setLoading(false);
+    });
+    return () => unsub();
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
-    setUser(user);
-    await fetchProfile(user.id);
-    setLoading(false);
-  };
-
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("name, profile_picture")
-      .eq("id", userId)
-      .single();
-    if (data) setProfile(data);
+    try {
+      const snap = await getDoc(doc(db, 'profiles', userId));
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        setProfile({
+          name: data?.name || "",
+          profile_picture: data?.profile_picture || data?.avatar_url || "",
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load profile', err);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,61 +78,44 @@ export default function CustomerProfile() {
     let profilePictureUrl = profile.profile_picture;
 
     // Upload new avatar if selected
-    if (avatarFile) {
+    if (avatarFile && user) {
       setUploadProgress("Uploading image...");
-      
+
       const fileExt = avatarFile.name.split('.').pop();
-      const filePath = `${user.id}/profile.${fileExt}`;
+      const storageRef = ref(storage, `avatars/${user.uid}/profile.${fileExt}`);
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, avatarFile, {
-          upsert: true,
-        });
-
-      if (uploadError) {
+      try {
+        await uploadBytes(storageRef, avatarFile);
+        const publicUrl = await getDownloadURL(storageRef);
+        profilePictureUrl = publicUrl;
+      } catch (uploadError) {
         console.error('Upload error:', uploadError);
         alert('Failed to upload image. Please try again.');
         setSaving(false);
         setUploadProgress("");
         return;
       }
-
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from("avatars")
-        .createSignedUrl(filePath, 60 * 60 * 24); // URL valid for 24 hours
-
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        throw new Error("Failed to generate signed URL");
-      }
-
-      profilePictureUrl = signedUrlData.signedUrl;
-
-      // const { data } = supabase.storage
-      //   .from('avatars')
-      //   .getPublicUrl(filePath);
-
-      // profilePictureUrl = data.publicUrl;
-      // setUploadProgress("Image uploaded successfully!");
     }
 
-    // Update profile in database
-    const { error } = await supabase
-      .from("profiles")
-      .update({ 
-        name: profile.name, 
-        profile_picture: profilePictureUrl 
-      })
-      .eq("id", user.id);
-
-    if (error) {
-      console.error('Update error:', error);
-      alert('Failed to update profile. Please try again.');
-    } else {
-      alert('Profile updated successfully!');
-      // Update local state with new profile picture URL
-      setProfile({ ...profile, profile_picture: profilePictureUrl });
-      setAvatarFile(null);
+    // Update profile in Firestore
+    if (user) {
+      try {
+        await setDoc(
+          doc(db, 'profiles', user.uid),
+          {
+            name: profile.name,
+            profile_picture: profilePictureUrl,
+            avatar_url: profilePictureUrl,
+          },
+          { merge: true }
+        );
+        alert('Profile updated successfully!');
+        setProfile({ ...profile, profile_picture: profilePictureUrl });
+        setAvatarFile(null);
+      } catch (error) {
+        console.error('Update error:', error);
+        alert('Failed to update profile. Please try again.');
+      }
     }
 
     setSaving(false);
@@ -200,4 +188,4 @@ export default function CustomerProfile() {
       </Card>
     </div>
   );
-} 
+}

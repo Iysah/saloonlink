@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase';
+// Removed unused Supabase import
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {  Upload, Image as ImageIcon, Loader2 } from 'lucide-react';

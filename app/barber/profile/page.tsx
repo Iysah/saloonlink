@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,8 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, User, MapPin, Building, ArrowLeft } from "lucide-react";
 // import { Separator } from "@/components/ui/separator";
 import { ProfilePictureUpload } from "@/components/ui/profile-picture-upload";
-
-const supabase = createClient()
+import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function BarberProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -25,6 +25,7 @@ export default function BarberProfilePage() {
     salon_name: "",
     location: ""
   });
+  const [barberProfileId, setBarberProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,53 +38,68 @@ export default function BarberProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
-    checkUser();
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        router.push("/auth/login");
+        return;
+      }
+      setUser(u);
+      await fetchProfile(u.uid);
+      await fetchBarberProfile(u.uid);
+      await fetchServices(u.uid);
+      setLoading(false);
+    });
+    return () => unsub();
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/auth/login");
-      return;
+  const fetchProfile = async (userId: string) => {
+    try {
+      const snap = await getDoc(doc(db, "profiles", userId));
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        setProfile((prev) => ({
+          ...prev,
+          name: data?.name || "",
+          profile_picture: data?.profile_picture || data?.avatar_url || "",
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
     }
-    setUser(user);
-    await fetchProfile(user.id);
-    await fetchServices(user.id);
-    setLoading(false);
   };
 
-  const fetchProfile = async (userId: string) => {
-    // Fetch barber profile and user profile - handle potential multiple rows gracefully
-    const { data: barberProfile, error } = await supabase
-      .from("barber_profiles")
-      .select("*, profile:profiles(name, profile_picture)")
-      .eq("user_id", userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (error) {
+  const fetchBarberProfile = async (userId: string) => {
+    try {
+      const q = query(
+        collection(db, "barber_profiles"),
+        where("user_id", "==", userId),
+        orderBy("created_at", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        const data = docSnap.data() as any;
+        setBarberProfileId(docSnap.id);
+        setProfile((prev) => ({
+          ...prev,
+          bio: data?.bio || "",
+          salon_name: data?.salon_name || "",
+          location: data?.location || "",
+        }));
+      }
+    } catch (error) {
       console.error("Error fetching barber profile:", error);
-      return;
-    }
-    if (barberProfile) {
-      setProfile({
-        name: barberProfile.profile?.name || "",
-        profile_picture: barberProfile.profile?.profile_picture || "",
-        bio: barberProfile.bio || "",
-        salon_name: barberProfile.salon_name || "",
-        location: barberProfile.location || ""
-      });
     }
   };
 
   const fetchServices = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("services")
-      .select("id, service_name, price, duration_minutes")
-      .eq("barber_id", userId)
-      .order("created_at", { ascending: false });
-    if (data) setServices(data);
+    try {
+      const q = query(collection(db, "services"), where("barber_id", "==", userId));
+      const snap = await getDocs(q);
+      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      if (data) setServices(data);
+    } catch (error) {}
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -96,26 +112,35 @@ export default function BarberProfilePage() {
     setError("");
     setSuccess("");
     try {
-      // Update profiles table with name and profile_picture
-      const { error: userProfileError } = await supabase
-        .from("profiles")
-        .update({
+      // Update profiles document with name and profile_picture
+      await setDoc(
+        doc(db, "profiles", user.uid),
+        {
           name: profile.name,
-          profile_picture: profile.profile_picture
-        })
-        .eq("id", user.id);
-      if (userProfileError) throw userProfileError;
+          profile_picture: profile.profile_picture,
+          avatar_url: profile.profile_picture,
+        },
+        { merge: true }
+      );
 
-      // Update barber_profiles
-      const { error: profileError } = await supabase
-        .from("barber_profiles")
-        .update({
+      // Update or create barber_profiles document
+      if (barberProfileId) {
+        await updateDoc(doc(db, "barber_profiles", barberProfileId), {
           bio: profile.bio,
           salon_name: profile.salon_name,
-          location: profile.location
-        })
-        .eq("user_id", user.id);
-      if (profileError) throw profileError;
+          location: profile.location,
+        });
+      } else {
+        const ref = await addDoc(collection(db, "barber_profiles"), {
+          user_id: user.uid,
+          bio: profile.bio,
+          salon_name: profile.salon_name,
+          location: profile.location,
+          created_at: serverTimestamp(),
+        });
+        setBarberProfileId(ref.id);
+      }
+
       setSuccess("Profile updated successfully!");
     } catch (err: any) {
       setError(err.message);
@@ -145,20 +170,20 @@ export default function BarberProfilePage() {
       setServiceLoading(false);
       return;
     }
-    const { error } = await supabase
-      .from("services")
-      .insert({
-        barber_id: user.id,
+
+    try {
+      await addDoc(collection(db, "services"), {
+        barber_id: user.uid,
         service_name: serviceForm.service_name,
         price,
-        duration_minutes: duration
+        duration_minutes: duration,
+        created_at: serverTimestamp(),
       });
-    if (error) {
-      setServiceError(error.message);
-    } else {
       setServiceSuccess("Service added successfully!");
       setServiceForm({ service_name: "", price: "", duration_minutes: "" });
-      await fetchServices(user.id);
+      await fetchServices(user.uid);
+    } catch (error: any) {
+      setServiceError(error?.message || "Failed to add service.");
     }
     setServiceLoading(false);
   };
@@ -185,7 +210,7 @@ export default function BarberProfilePage() {
         </div>
         <div className="text-center mb-8">
           <ProfilePictureUpload
-            userId={user.id}
+            userId={user?.uid}
             currentImageUrl={profile.profile_picture}
             onImageUploaded={(imageUrl) => setProfile({ ...profile, profile_picture: imageUrl })}
             className="mb-4"
@@ -278,95 +303,7 @@ export default function BarberProfilePage() {
             </form>
           </CardContent>
         </Card>
-        {/* <Card className="shadow-xl mt-8">
-          <CardHeader>
-            <CardTitle>Services</CardTitle>
-            <CardDescription>Add and manage your offered services</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAddService} className="space-y-4 mb-6">
-              {serviceError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{serviceError}</AlertDescription>
-                </Alert>
-              )}
-              {serviceSuccess && (
-                <Alert variant="default">
-                  <AlertDescription>{serviceSuccess}</AlertDescription>
-                </Alert>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="service_name">Service Name</Label>
-                  <Input
-                    id="service_name"
-                    name="service_name"
-                    value={serviceForm.service_name}
-                    onChange={handleServiceChange}
-                    placeholder="e.g. Low-cut"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="price">Price (₦)</Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={serviceForm.price}
-                    onChange={handleServiceChange}
-                    placeholder="e.g. 1,000"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="duration_minutes">Duration (min)</Label>
-                  <Input
-                    id="duration_minutes"
-                    name="duration_minutes"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={serviceForm.duration_minutes}
-                    onChange={handleServiceChange}
-                    placeholder="e.g. 30"
-                    required
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={serviceLoading}>
-                {serviceLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add Service"
-                )}
-              </Button>
-            </form>
-            <Separator className="mb-4" />
-            <div>
-              {services.length === 0 ? (
-                <p className="text-gray-500 text-center">No services added yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {services.map((service) => (
-                    <div key={service.id} className="flex justify-between items-center border rounded-lg p-3">
-                      <div>
-                        <div className="font-semibold">{service.service_name}</div>
-                        <div className="text-sm text-gray-500">₦{service.price} &bull; {service.duration_minutes} min</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card> */}
       </div>
     </div>
   );
-} 
+}

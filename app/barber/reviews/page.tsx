@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +40,6 @@ interface Review {
   };
 }
 
-const supabase = createClient()
 interface ReviewStats {
   averageRating: number;
   totalReviews: number;
@@ -58,42 +59,91 @@ export default function BarberReviewsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    checkUser();
+    // Replace Supabase checkUser with Firebase onAuthStateChanged
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        router.push('/auth/login');
+        setLoading(false);
+        return;
+      }
+      setUser(currentUser);
+      setLoading(true);
+      await fetchReviews(currentUser.uid);
+      setLoading(false);
+    });
+    return () => unsub();
   }, []);
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    setUser(user);
-    await fetchReviews(user.id);
-    setLoading(false);
-  };
-
   const fetchReviews = async (userId: string) => {
-    const { data } = await supabase
-      .from('reviews')
-      .select(`
-        id,
-        rating,
-        review_text,
-        created_at,
-        customer:profiles!reviews_customer_id_fkey(name, profile_picture),
-        appointment:appointments!reviews_appointment_id_fkey(
-          appointment_date,
-          appointment_time,
-          service:services(service_name)
-        )
-      `)
-      .eq('barber_id', userId)
-      .order('created_at', { ascending: false });
+    try {
+      const q = query(collection(db, 'reviews'), where('barber_id', '==', userId));
+      const snap = await getDocs(q);
+      const reviewsData: Review[] = await Promise.all(
+        snap.docs.map(async (d) => {
+          const data = d.data() as any;
 
-    if (data) {
-      setReviews(data as any);
-      calculateStats(data as any);
+          // Join customer profile
+          let customer: { name: string; profile_picture: string | null } = { name: '', profile_picture: null };
+          try {
+            if (data?.customer_id) {
+              const custSnap = await getDoc(doc(db, 'profiles', data.customer_id));
+              if (custSnap.exists()) {
+                const cp = custSnap.data() as any;
+                customer = {
+                  name: cp?.name || '',
+                  profile_picture: cp?.profile_picture || cp?.avatar_url || null,
+                };
+              }
+            }
+          } catch (e) {}
+
+          // Join appointment details and service name
+          let appointment: { appointment_date: string; appointment_time: string; service: { service_name: string } } = {
+            appointment_date: '',
+            appointment_time: '',
+            service: { service_name: '' },
+          };
+          try {
+            if (data?.appointment_id) {
+              const apptSnap = await getDoc(doc(db, 'appointments', data.appointment_id));
+              if (apptSnap.exists()) {
+                const appt = apptSnap.data() as any;
+                appointment.appointment_date = appt?.appointment_date || '';
+                appointment.appointment_time = appt?.appointment_time || '';
+                const serviceId = appt?.service_id;
+                if (serviceId) {
+                  try {
+                    const svcSnap = await getDoc(doc(db, 'services', serviceId));
+                    if (svcSnap.exists()) {
+                      const sv = svcSnap.data() as any;
+                      appointment.service = { service_name: sv?.service_name || '' };
+                    }
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (e) {}
+
+          const createdAt = data?.created_at;
+          const createdAtIso = createdAt && typeof createdAt?.toDate === 'function'
+            ? createdAt.toDate().toISOString()
+            : (typeof createdAt === 'string' ? createdAt : new Date().toISOString());
+
+          return {
+            id: d.id,
+            rating: data?.rating || 0,
+            review_text: data?.review_text || null,
+            created_at: createdAtIso,
+            customer,
+            appointment,
+          } as Review;
+        })
+      );
+
+      setReviews(reviewsData);
+      calculateStats(reviewsData);
+    } catch (error) {
+      console.error('Failed to fetch reviews:', error);
     }
   };
 
@@ -329,4 +379,4 @@ export default function BarberReviewsPage() {
       </div>
     </div>
   );
-} 
+}
