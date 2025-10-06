@@ -6,7 +6,9 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { auth, db } from "@/lib/firebase-client";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, orderBy, limit, getDocs, getDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,8 +45,6 @@ import { TProfile } from "@/types/profile.type";
 import { Analytics } from "@/components/analytics/Analytics";
 import { hasSubscriptionExpired } from "@/lib/utils";
 import { plans } from "@/lib/tierLimits";
-
-const supabase = createClient();
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -202,79 +202,32 @@ export default function BarberDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    //? define the channel
-    //? if not eligible to live return
     if (
       !userProfile ||
-      !barberSubscription?.features?.appointments
-        ?.real_time_updates
+      !barberSubscription?.features?.appointments?.real_time_updates
     )
       return;
 
-    const channel = supabase.channel(`live-channel`);
-
-    console.log(channel);
-
-    //? Listen for UPDATE events
-    channel.on(
-      "postgres_changes",
-      {
-        event: "UPDATE",
-        schema: "public",
-        table: "queue",
-        filter: `barber_id=eq.${user?.id}`,
-      },
-      (payload) => {
-        //  console.log("payload from live UPDATE", payload);
-        const updated = payload.new as QueueItem;
-        if (Array.isArray(queue)) {
-          const updatedQueue = queue.map((item) => {
-            if (item.id === updated.id) {
-              return { ...updated };
-            }
-            return item;
-          });
-
-          setQueue(
-            updatedQueue
-              .filter((v) => v.status !== "completed")
-              .sort((a, b) => a.position - b.position)
-          );
-        }
-      }
+    const q = query(
+      collection(db, "queue"),
+      where("barber_id", "==", user.id)
     );
 
-    //? Listen for INSERT events
-    channel.on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "queue",
-        filter: `barber_id=eq.${user?.id}`,
-      },
-      (payload) => {
-        //  console.log("payload from live INSERT", payload);
-        if (Array.isArray(queue)) {
-          setQueue(
-            [...queue, payload.new as QueueItem]
-              .filter((v) => v.status !== "completed")
-              .sort((a, b) => a.position - b.position)
-          );
-        }
-      }
-    );
-
-    //? Subscribe to the channel
-    channel.subscribe((status) => {
-      console.log("Subscription status:", status);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map((d) => {
+        const data = d.data() as any;
+        return { id: d.id, ...(data as any) } as QueueItem;
+      });
+      const updatedQueue = items
+        .filter((v) => v.status !== "completed")
+        .sort((a, b) => a.position - b.position);
+      setQueue(updatedQueue);
     });
 
     return () => {
-      //? Cleanup the channel on unmount
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
-  }, [user, supabase, queue, userProfile]);
+  }, [user, userProfile, barberSubscription]);
 
   /**
    * Generate QR code when user data is available
@@ -317,14 +270,12 @@ export default function BarberDashboard() {
    * Check if user is authenticated and redirect to login if not
    */
   const checkUser = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    const u = auth.currentUser;
+    if (!u) {
       router.push("/auth/login");
       return;
     }
-    setUser(user);
+    setUser(u);
   };
 
   // ============================================================================
@@ -340,14 +291,9 @@ export default function BarberDashboard() {
    */
   const fetchUserData = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (data) {
-        setUserProfile(data);
+      const snap = await getDoc(doc(db, "profiles", userId));
+      if (snap.exists()) {
+        setUserProfile(snap.data() as TProfile);
       }
     } catch (error) {
       console.log(error);
@@ -361,11 +307,10 @@ export default function BarberDashboard() {
 
   const fetchServices = async (userId: string) => {
     try {
-      const { data } = await supabase
-        .from("services")
-        .select("*")
-        .eq("barber_id", user?.id);
-      if (data && data?.length > 0) {
+      const q = query(collection(db, "services"), where("barber_id", "==", userId));
+      const snap = await getDocs(q);
+      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as ServiceItem[];
+      if (data && data.length > 0) {
         setServices(data);
       }
     } catch (error) {}
@@ -375,23 +320,23 @@ export default function BarberDashboard() {
    * Fetch barber profile data including availability settings
    */
   const fetchBarberData = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("barber_profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const q = query(
+        collection(db, "barber_profiles"),
+        where("user_id", "==", userId),
+        orderBy("created_at", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        const data = docSnap.data() as any;
+        setBarberProfile({ id: docSnap.id, ...data });
+        setIsAvailable(data.is_available);
+        setWalkInEnabled(data.walk_in_enabled);
+      }
+    } catch (error) {
       console.error("Error fetching barber data:", error);
-      return;
-    }
-
-    if (data) {
-      setBarberProfile(data);
-      setIsAvailable(data.is_available);
-      setWalkInEnabled(data.walk_in_enabled);
     }
   };
 
@@ -401,62 +346,92 @@ export default function BarberDashboard() {
   const fetchAppointments = async (userId: string) => {
     const today = new Date().toISOString().split("T")[0];
 
-    const { data } = await supabase
-      .from("appointments")
-      .select(
-        `
-        *,
-        customer:profiles!appointments_customer_id_fkey(name, phone),
-        service:services(service_name, price, duration_minutes)
-      `
-      )
-      .eq("barber_id", userId)
-      .eq("appointment_date", today)
-      .order("appointment_time");
+    const q = query(
+      collection(db, "appointments"),
+      where("barber_id", "==", userId),
+      where("appointment_date", "==", today),
+      orderBy("appointment_time")
+    );
+    const snap = await getDocs(q);
+    const base = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as any[];
 
-    if (data) {
-      setAppointments(data as any);
-    }
+    // hydrate with customer and service info
+    const enriched = await Promise.all(
+      base.map(async (appt) => {
+        let customer: { name?: string; phone?: string } = {};
+        let service: { service_name?: string; price?: number; duration_minutes?: number } = {} as any;
+        try {
+          const cSnap = await getDoc(doc(db, "profiles", appt.customer_id));
+          if (cSnap.exists()) {
+            const c = cSnap.data() as any;
+            customer = { name: c.name, phone: c.phone };
+          }
+        } catch {}
+        try {
+          const sSnap = await getDoc(doc(db, "services", appt.service_id));
+          if (sSnap.exists()) {
+            const s = sSnap.data() as any;
+            service = { service_name: s.service_name, price: s.price, duration_minutes: s.duration_minutes };
+          }
+        } catch {}
+        return { ...appt, customer, service } as Appointment;
+      })
+    );
+
+    setAppointments(enriched);
   };
 
   /**
    * Fetch recently completed appointments for review link generation
    */
   const fetchCompletedAppointments = async (userId: string) => {
-    const { data } = await supabase
-      .from("appointments")
-      .select(
-        `
-        *,
-        customer:profiles!appointments_customer_id_fkey(name, phone),
-        service:services(service_name, price, duration_minutes)
-      `
-      )
-      .eq("barber_id", userId)
-      .eq("status", "completed")
-      .order("appointment_date", { ascending: false })
-      .order("appointment_time", { ascending: false })
-      .limit(20);
-
-    if (data) {
-      setCompletedAppointments(data as any);
-    }
+    const q = query(
+      collection(db, "appointments"),
+      where("barber_id", "==", userId),
+      where("status", "==", "completed"),
+      orderBy("appointment_date", "desc"),
+      orderBy("appointment_time", "desc"),
+      limit(20)
+    );
+    const snap = await getDocs(q);
+    const base = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as any[];
+    const enriched = await Promise.all(
+      base.map(async (appt) => {
+        let customer: { name?: string; phone?: string } = {};
+        let service: { service_name?: string; price?: number; duration_minutes?: number } = {} as any;
+        try {
+          const cSnap = await getDoc(doc(db, "profiles", appt.customer_id));
+          if (cSnap.exists()) {
+            const c = cSnap.data() as any;
+            customer = { name: c.name, phone: c.phone };
+          }
+        } catch {}
+        try {
+          const sSnap = await getDoc(doc(db, "services", appt.service_id));
+          if (sSnap.exists()) {
+            const s = sSnap.data() as any;
+            service = { service_name: s.service_name, price: s.price, duration_minutes: s.duration_minutes };
+          }
+        } catch {}
+        return { ...appt, customer, service } as Appointment;
+      })
+    );
+    setCompletedAppointments(enriched);
   };
 
   /**
    * Fetch current walk-in queue for the barber
    */
   const fetchQueue = async (userId: string) => {
-    const { data } = await supabase
-      .from("queue")
-      .select("*")
-      .eq("barber_id", userId)
-      .eq("status", "waiting")
-      .order("position");
-
-    if (data) {
-      setQueue(data?.filter((v) => v.status !== "completed"));
-    }
+    const q = query(
+      collection(db, "queue"),
+      where("barber_id", "==", userId),
+      where("status", "==", "waiting"),
+      orderBy("position")
+    );
+    const snap = await getDocs(q);
+    const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as QueueItem[];
+    setQueue(data.filter((v) => v.status !== "completed"));
   };
 
   // ============================================================================
@@ -467,15 +442,15 @@ export default function BarberDashboard() {
    * Update barber's availability status
    */
   const updateAvailability = async (available: boolean) => {
-    if (!user) return;
+    if (!user || !barberProfile?.id) return;
 
-    const { error } = await supabase
-      .from("barber_profiles")
-      .update({ is_available: available })
-      .eq("user_id", user.id);
-
-    if (!error) {
+    try {
+      await updateDoc(doc(db, "barber_profiles", barberProfile.id), {
+        is_available: available,
+      });
       setIsAvailable(available);
+    } catch (error) {
+      console.error("Failed to update availability", error);
     }
   };
 
@@ -483,15 +458,15 @@ export default function BarberDashboard() {
    * Update walk-in acceptance setting
    */
   const updateWalkInEnabled = async (enabled: boolean) => {
-    if (!user) return;
+    if (!user || !barberProfile?.id) return;
 
-    const { error } = await supabase
-      .from("barber_profiles")
-      .update({ walk_in_enabled: enabled })
-      .eq("user_id", user.id);
-
-    if (!error) {
+    try {
+      await updateDoc(doc(db, "barber_profiles", barberProfile.id), {
+        walk_in_enabled: enabled,
+      });
       setWalkInEnabled(enabled);
+    } catch (error) {
+      console.error("Failed to update walk-in setting", error);
     }
   };
 
@@ -499,40 +474,34 @@ export default function BarberDashboard() {
    * Start an appointment and send WhatsApp notification
    */
   const startAppointment = async (appointmentId: string) => {
-    // Update appointment status to in_progress
-    const { error } = await supabase
-      .from("appointments")
-      .update({ status: "in_progress" })
-      .eq("id", appointmentId);
+    try {
+      await updateDoc(doc(db, "appointments", appointmentId), {
+        status: "in_progress",
+      });
 
-    if (!error) {
       fetchAppointments(user.id);
 
-      // Send WhatsApp appointment started notification
-      // Fetch appointment details for phone, salonName, service
-      const { data: appt } = await supabase
-        .from("appointments")
-        .select(
-          "customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)"
-        )
-        .eq("id", appointmentId)
-        .single();
+      const apptSnap = await getDoc(doc(db, "appointments", appointmentId));
+      if (apptSnap.exists()) {
+        const appt = apptSnap.data() as any;
 
-      if (appt) {
-        // Handle potential array responses from Supabase joins
-        const customer = Array.isArray(appt.customer)
-          ? appt.customer[0]
-          : appt.customer;
-        const barber = Array.isArray(appt.barber)
-          ? appt.barber[0]
-          : appt.barber;
-        const service = Array.isArray(appt.service)
-          ? appt.service[0]
-          : appt.service;
+        let customerPhone: string | null = null;
+        try {
+          const cSnap = await getDoc(doc(db, "profiles", appt.customer_id));
+          if (cSnap.exists()) {
+            customerPhone = (cSnap.data() as any).phone ?? null;
+          }
+        } catch {}
 
-        const customerPhone = customer?.phone;
-        const salonName = barber?.salon_name;
-        const serviceName = service?.service_name;
+        const salonName = barberProfile?.salon_name ?? null;
+
+        let serviceName: string | null = null;
+        try {
+          const sSnap = await getDoc(doc(db, "services", appt.service_id));
+          if (sSnap.exists()) {
+            serviceName = (sSnap.data() as any).service_name ?? null;
+          }
+        } catch {}
 
         if (customerPhone && salonName && serviceName) {
           const { whatsappService } = await import("@/lib/termii");
@@ -543,6 +512,8 @@ export default function BarberDashboard() {
           );
         }
       }
+    } catch (error) {
+      console.error("Failed to start appointment", error);
     }
   };
 
@@ -550,41 +521,35 @@ export default function BarberDashboard() {
    * Complete an appointment and send WhatsApp notification
    */
   const completeAppointment = async (appointmentId: string) => {
-    // Update appointment status to completed
-    const { error } = await supabase
-      .from("appointments")
-      .update({ status: "completed" })
-      .eq("id", appointmentId);
+    try {
+      await updateDoc(doc(db, "appointments", appointmentId), {
+        status: "completed",
+      });
 
-    if (!error) {
       fetchAppointments(user.id);
       fetchCompletedAppointments(user.id);
 
-      // Send WhatsApp service completed notification
-      // Fetch appointment details for phone, salonName, service
-      const { data: appt } = await supabase
-        .from("appointments")
-        .select(
-          "customer:profiles(phone), barber:barber_profiles(salon_name), service:services(service_name)"
-        )
-        .eq("id", appointmentId)
-        .single();
+      const apptSnap = await getDoc(doc(db, "appointments", appointmentId));
+      if (apptSnap.exists()) {
+        const appt = apptSnap.data() as any;
 
-      if (appt) {
-        // Handle potential array responses from Supabase joins
-        const customer = Array.isArray(appt.customer)
-          ? appt.customer[0]
-          : appt.customer;
-        const barber = Array.isArray(appt.barber)
-          ? appt.barber[0]
-          : appt.barber;
-        const service = Array.isArray(appt.service)
-          ? appt.service[0]
-          : appt.service;
+        let customerPhone: string | null = null;
+        try {
+          const cSnap = await getDoc(doc(db, "profiles", appt.customer_id));
+          if (cSnap.exists()) {
+            customerPhone = (cSnap.data() as any).phone ?? null;
+          }
+        } catch {}
 
-        const customerPhone = customer?.phone;
-        const salonName = barber?.salon_name;
-        const serviceName = service?.service_name;
+        const salonName = barberProfile?.salon_name ?? null;
+
+        let serviceName: string | null = null;
+        try {
+          const sSnap = await getDoc(doc(db, "services", appt.service_id));
+          if (sSnap.exists()) {
+            serviceName = (sSnap.data() as any).service_name ?? null;
+          }
+        } catch {}
 
         if (customerPhone && salonName && serviceName) {
           const { whatsappService } = await import("@/lib/termii");
@@ -595,6 +560,8 @@ export default function BarberDashboard() {
           );
         }
       }
+    } catch (error) {
+      console.error("Failed to complete appointment", error);
     }
   };
 
@@ -602,13 +569,11 @@ export default function BarberDashboard() {
    * Start serving a queue item
    */
   const startQueueItem = async (queueId: string) => {
-    const { error } = await supabase
-      .from("queue")
-      .update({ status: "in_progress" })
-      .eq("id", queueId);
-
-    if (!error) {
+    try {
+      await updateDoc(doc(db, "queue", queueId), { status: "in_progress" });
       fetchQueue(user.id);
+    } catch (error) {
+      console.error("Failed to start queue item", error);
     }
   };
 
@@ -616,27 +581,24 @@ export default function BarberDashboard() {
    * Complete a queue item and notify next customer
    */
   const completeQueueItem = async (queueId: string) => {
-    const { error } = await supabase
-      .from("queue")
-      .update({ status: "completed" })
-      .eq("id", queueId);
-
-    if (!error) {
+    try {
+      await updateDoc(doc(db, "queue", queueId), { status: "completed" });
       fetchQueue(user.id);
 
-      // Update positions for remaining queue items
       await updateQueuePositions();
 
-      // Send WhatsApp alert to the next in line (position 1)
-      const { data: waitingQueue } = await supabase
-        .from("queue")
-        .select("*")
-        .eq("barber_id", user.id)
-        .eq("status", "waiting")
-        .order("position");
-
-      if (waitingQueue && waitingQueue.length > 0) {
-        const next = waitingQueue[0];
+      const qWaiting = query(
+        collection(db, "queue"),
+        where("barber_id", "==", user.id),
+        where("status", "==", "waiting"),
+        orderBy("position")
+      );
+      const snap = await getDocs(qWaiting);
+      if (!snap.empty) {
+        const next = {
+          id: snap.docs[0].id,
+          ...(snap.docs[0].data() as any),
+        } as QueueItem;
         if (next && next.phone && barberProfile?.salon_name) {
           const { whatsappService } = await import("@/lib/termii");
           await whatsappService.sendQueueAlert(
@@ -644,13 +606,14 @@ export default function BarberDashboard() {
             barberProfile.salon_name,
             next.position
           );
-          // Also send "Next in Line" alert
           await whatsappService.sendNextInLineAlert(
             next.phone,
             barberProfile.salon_name
           );
         }
       }
+    } catch (error) {
+      console.error("Failed to complete queue item", error);
     }
   };
 
@@ -660,22 +623,26 @@ export default function BarberDashboard() {
   const updateQueuePositions = async () => {
     if (!user) return;
 
-    const { data: waitingQueue } = await supabase
-      .from("queue")
-      .select("id")
-      .eq("barber_id", user.id)
-      .eq("status", "waiting")
-      .order("join_time");
+    try {
+      const qWaiting = query(
+        collection(db, "queue"),
+        where("barber_id", "==", user.id),
+        where("status", "==", "waiting"),
+        orderBy("join_time")
+      );
 
-    if (waitingQueue) {
-      // Update positions sequentially
-      for (let i = 0; i < waitingQueue.length; i++) {
-        await supabase
-          .from("queue")
-          .update({ position: i + 1 })
-          .eq("id", waitingQueue[i].id);
+      const snap = await getDocs(qWaiting);
+      const docs = snap.docs;
+
+      for (let i = 0; i < docs.length; i++) {
+        await updateDoc(doc(db, "queue", docs[i].id), {
+          position: i + 1,
+        });
       }
+
       fetchQueue(user.id);
+    } catch (error) {
+      console.error("Failed to update queue positions", error);
     }
   };
 
@@ -687,7 +654,8 @@ export default function BarberDashboard() {
    * Handle user logout
    */
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { signOut } = await import("firebase/auth");
+    await signOut(auth);
     router.push("/auth/login");
   };
 

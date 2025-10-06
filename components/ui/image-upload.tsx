@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {  Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { storage, db } from '@/lib/firebase-client';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { addDoc, collection } from 'firebase/firestore';
 
 interface ImageUploadProps {
   serviceId: string;
@@ -14,7 +17,7 @@ interface ImageUploadProps {
   className?: string;
 }
 
-const supabase = createClient()
+// const supabase = createClient()
 export function ImageUpload({ 
   serviceId, 
   onImagesUploaded, 
@@ -34,28 +37,19 @@ export function ImageUpload({
     setUploading(true);
 
     try {
-      const { error: uploadError, data } = await supabase.storage
-        .from('images')
-        .upload(filePath, file);
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, filePath);
+      await uploadBytes(storageRef, file);
 
-      if (uploadError) {
-        throw uploadError;
-      }
+      const publicUrl = await getDownloadURL(storageRef);
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath);
-
-      // Save to service_images table
-      const { error: dbError } = await supabase
-        .from('service_images')
-        .insert({
-          service_id: serviceId,
-          image_url: publicUrl,
-          image_order: 0 // Will be updated based on existing images
-        });
-
-      if (dbError) throw dbError;
+      // Save to Firestore service_images collection
+      await addDoc(collection(db, 'service_images'), {
+        service_id: serviceId,
+        image_url: publicUrl,
+        image_order: 0, // Will be updated based on existing images
+        storage_path: filePath
+      });
 
       onImagesUploaded([publicUrl]);
     } catch (error) {
@@ -145,4 +139,4 @@ export function ImageUpload({
       </CardContent>
     </Card>
   );
-} 
+}

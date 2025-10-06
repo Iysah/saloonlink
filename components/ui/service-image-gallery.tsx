@@ -19,7 +19,9 @@ interface ServiceImageGalleryProps {
   maxImages?: number;
 }
 
-const supabase = createClient()
+import { db, storage } from '@/lib/firebase-client';
+import { collection, query, where, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
 
 export function ServiceImageGallery({ serviceId, maxImages = 3 }: ServiceImageGalleryProps) {
   const [images, setImages] = useState<ServiceImage[]>([]);
@@ -32,14 +34,14 @@ export function ServiceImageGallery({ serviceId, maxImages = 3 }: ServiceImageGa
 
   const fetchImages = async () => {
     try {
-      const { data, error } = await supabase
-        .from('service_images')
-        .select('*')
-        .eq('service_id', serviceId)
-        .order('image_order');
-
-      if (error) throw error;
-      setImages(data || []);
+      const q = query(
+        collection(db, 'service_images'),
+        where('service_id', '==', serviceId),
+        orderBy('image_order')
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as ServiceImage[];
+      setImages(list || []);
     } catch (error) {
       console.error('Error fetching images:', error);
     } finally {
@@ -54,29 +56,24 @@ export function ServiceImageGallery({ serviceId, maxImages = 3 }: ServiceImageGa
 
   const deleteImage = async (imageId: string, imageUrl: string) => {
     setDeleting(imageId);
-    
     try {
-      // Extract file path from URL
-      const urlParts = imageUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1];
-      const filePath = `service-images/${serviceId}/${fileName}`;
+      // Prefer storage_path if available; fallback to URL parsing
+      const img = images.find(i => i.id === imageId);
+      const storagePath = (img as any)?.storage_path;
+      let path = storagePath;
+      if (!path) {
+        const urlParts = imageUrl.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+        path = `service-images/${serviceId}/${fileName}`;
+      }
 
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('images')
-        .remove([filePath]);
+      // Delete from Firebase Storage
+      const storageRef = ref(storage, path);
+      await deleteObject(storageRef);
 
-      if (storageError) throw storageError;
+      // Delete from Firestore
+      await deleteDoc(doc(db, 'service_images', imageId));
 
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('service_images')
-        .delete()
-        .eq('id', imageId);
-
-      if (dbError) throw dbError;
-
-      // Update local state
       setImages(images.filter(img => img.id !== imageId));
     } catch (error) {
       console.error('Error deleting image:', error);
@@ -162,4 +159,4 @@ export function ServiceImageGallery({ serviceId, maxImages = 3 }: ServiceImageGa
       )}
     </div>
   );
-} 
+}

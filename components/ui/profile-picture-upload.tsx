@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Upload, Camera, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { storage } from '@/lib/firebase-client';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface ProfilePictureUploadProps {
   userId: string;
@@ -14,7 +16,7 @@ interface ProfilePictureUploadProps {
   className?: string;
 }
 
-const supabase = createClient()
+// const supabase = createClient()
 
 
 export function ProfilePictureUpload({ 
@@ -49,22 +51,9 @@ export function ProfilePictureUpload({
     setUploading(true);
 
     try {
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          upsert: true,
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
+      const storageRef = ref(storage, `avatars/${filePath}`);
+      await uploadBytes(storageRef, file);
+      const publicUrl = await getDownloadURL(storageRef);
       onImageUploaded(publicUrl);
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -192,4 +181,4 @@ export function ProfilePictureUpload({
       </div>
     </div>
   );
-} 
+}
